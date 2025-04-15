@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
 using ProjectAPI.Models;
 using ProjectAPI.Services;
-using YamlDotNet.Core.Tokens;
 using Task = ProjectAPI.Models.Task;
 
 namespace ProjectAPI.Controllers
@@ -65,7 +64,7 @@ namespace ProjectAPI.Controllers
                     Description = taskCreateDto.Description,
                     Due_date = taskCreateDto.Due_date,
                     Priority = taskCreateDto.Priority,
-                    Status = "To Do",
+                    Status = taskCreateDto.Status ?? "To Do",
                     Project_Id = taskCreateDto.Project_Id,
                 };
 

@@ -18,10 +18,44 @@ namespace ProjectAPI.Controllers
         }
 
         [Authorize]
+        [HttpGet()]
+        public async Task<IActionResult> GetMembers([FromQuery] string project_code)
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (idClaim == null)
+                return Unauthorized(new { success = false, message = "ID not found in token." });
+
+            var userId = Convert.ToInt32(idClaim.Value);
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+                return Unauthorized(new { message = "User not found." });
+
+            var project = await _context.Projects
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.Project_code == project_code);
+
+            if (project == null)
+                return NotFound(new { success = false, message = "Project not found." });
+
+            // Check if user is either the project owner or a member
+            var isOwner = project.User_id == userId;
+            var isMember = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == project.Id);
+
+            if (!isOwner && !isMember)
+                return Unauthorized(new { success = false, message = "You must be a member or admin." });
+
+            var members = await _context.Members
+                .Where(m => m.Project_Id == project.Id)
+                .Include(m => m.User)
+                .ToListAsync();
+
+            return Ok(new { success = true, members, creator = project.User });
+        }
+
+        [Authorize]
         [HttpGet("{id}")]
         public async Task<IActionResult> GetMemberById(int id)
         {
-            // Fetch the project by its ID, including the related user (if needed)
             var member = await _context.Members
                 .Include(m => m.User)
                 .FirstOrDefaultAsync(m => m.Id == id);
