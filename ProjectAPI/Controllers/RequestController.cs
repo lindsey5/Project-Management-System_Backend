@@ -75,7 +75,7 @@ namespace ProjectAPI.Controllers
                 if (existingRequest != null)
                     return Conflict(new {
                         success = false,
-                        message = "Pending request already exists",
+                        message = "You've already submitted a request",
                         requestId = existingRequest.Id
                     });
 
@@ -101,6 +101,7 @@ namespace ProjectAPI.Controllers
                 return StatusCode(500, new { 
                     success = false, 
                     message = "An internal error occurred",
+                    ex
                 });
             }
         }

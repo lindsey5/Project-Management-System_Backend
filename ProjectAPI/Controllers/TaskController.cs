@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
 using ProjectAPI.Models;
 using ProjectAPI.Services;
+using YamlDotNet.Core.Tokens;
 using Task = ProjectAPI.Models.Task;
 
 namespace ProjectAPI.Controllers
@@ -64,7 +65,7 @@ namespace ProjectAPI.Controllers
                     Description = taskCreateDto.Description,
                     Due_date = taskCreateDto.Due_date,
                     Priority = taskCreateDto.Priority,
-                    Status = "Pending",
+                    Status = "To Do",
                     Project_Id = taskCreateDto.Project_Id,
                 };
 
@@ -72,7 +73,7 @@ namespace ProjectAPI.Controllers
 
                 await _context.SaveChangesAsync();
 
-                var Assignees = await _assigneeService.CreateAssignees(taskCreateDto.AssigneesId, task.Id);
+                var Assignees = await _assigneeService.CreateAssignees(taskCreateDto.AssigneesId, task.Id, taskCreateDto.Project_Id);
 
                 if(Assignees != null && Assignees.Count > 0){
                     return Ok(new {success = "true", task = new TaskResponseDto(task, Assignees)});
@@ -83,7 +84,7 @@ namespace ProjectAPI.Controllers
                 return BadRequest(ex.Message);
             }
             catch (Exception ex){
-                return StatusCode(500, ex);
+                return StatusCode(500, new { Error = ex.Message });
             }
 
         }

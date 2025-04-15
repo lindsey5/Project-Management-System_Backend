@@ -4,6 +4,7 @@ namespace ProjectAPI.Models
 {
     public class Assignee : AssigneeBaseDto
     {
+        
         [ForeignKey("User_Id")]
         public User? User { get; set; }
 

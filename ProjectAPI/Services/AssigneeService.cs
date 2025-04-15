@@ -1,5 +1,6 @@
 using System;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ProjectAPI.Models;
 
 namespace ProjectAPI.Services;
@@ -23,28 +24,29 @@ public class AssigneeService
         return assignee;
     }
 
-    public async Task<List<AssigneeBaseDto>?> CreateAssignees(List<int> assigneesId, int task_Id){
+    public async Task<List<AssigneeBaseDto>?> CreateAssignees(List<int> assigneesId, int task_Id, int project_Id){
         List<AssigneeBaseDto> Assignees = new List<AssigneeBaseDto>();
 
         if (assigneesId != null && assigneesId.Any())
         {
             foreach (var assigneeUserId in assigneesId.Distinct())
             {
-            // Verify assignee exists
-            var assigneeUser = await _context.Users.FindAsync(assigneeUserId);
-            if (assigneeUser == null) continue; 
+                var member = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == assigneeUserId && m.Project_Id == project_Id);
 
-            var assignee = new Assignee
-            {
-                Task_Id = task_Id,
-                User_Id = assigneeUserId
-            };
-                var newAssignee = await CreateAssignee(assignee);
-                Assignees.Add(new AssigneeBaseDto{
-                    Id = newAssignee.Id,
-                    User_Id = newAssignee.User_Id,
-                    Task_Id = newAssignee.Task_Id
-                });
+                if(member != null){
+                    var assignee = new Assignee
+                    {
+                        Task_Id = task_Id,
+                        User_Id = assigneeUserId
+                    };
+                    var newAssignee = await CreateAssignee(assignee);
+                    Assignees.Add(new AssigneeBaseDto{
+                        Id = newAssignee.Id,
+                        User_Id = newAssignee.User_Id,
+                        Task_Id = newAssignee.Task_Id
+                    });
+                }
+                
             }
 
             return Assignees;
