@@ -19,6 +19,7 @@ namespace ProjectAPI.Services
         {
             var claims = new[]
             {
+                new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             };
 

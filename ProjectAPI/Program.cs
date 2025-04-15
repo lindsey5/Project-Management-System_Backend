@@ -32,9 +32,12 @@ builder.Services.AddDbContext<ApplicationDBContext>(options =>
         new MySqlServerVersion(new Version(8, 0, 21))
     )
 );
-
+builder.Services.AddHttpClient();
 // Register AuthService with the secret key from config
 builder.Services.AddSingleton(new AuthService(jwtSecret));
+// Register 
+builder.Services.AddScoped<ProjectService>();
+builder.Services.AddScoped<AssigneeService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

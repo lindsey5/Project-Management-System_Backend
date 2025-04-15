@@ -15,23 +15,31 @@ namespace ProjectAPI.Controllers
             _context = context;
         }
 
-        [Authorize]
-        [HttpGet("profile")]
-        public IActionResult GetProfile()
-        {
-            // Get the email from the claims
-            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+    [Authorize]
+    [HttpGet("profile")]
+    public IActionResult GetProfile()
+    {
+        // Get the email from the claims
+        var emailClaim = User.FindFirst(ClaimTypes.Email);
+        Console.WriteLine(emailClaim);
 
-            if (idClaim == null)
-                return Unauthorized(new { message = "Id not found in token." });
+        if (emailClaim == null)
+            return Unauthorized(new { message = "Email not found in token." });
 
-            int userId = int.Parse(idClaim.Value);
+        var user = _context.Users.FirstOrDefault(u => u.Email == emailClaim.Value);
 
-            var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+        if (user == null)
+            return NotFound(new { message = "User not found." });
 
-            return Ok(new { user });
-        }
-
+        var base64Image = user.Profile_pic != null ? Convert.ToBase64String(user.Profile_pic) : null;
+        return Ok(new { 
+            email = user.Email, 
+            firstname = user.Firstname, 
+            lastname = user.Lastname, 
+            byteArray = user.Profile_pic,
+            profile_pic = $"data:image/jpeg;base64,{base64Image}" 
+        });
+    }
 
     }
 }

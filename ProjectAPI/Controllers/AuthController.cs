@@ -25,7 +25,6 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> GoogleLogin([FromBody] User loginUser)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginUser.Email);
-            Console.WriteLine(user);
             if (user == null){
                 _context.Users.Add(loginUser);
                  await _context.SaveChangesAsync();
