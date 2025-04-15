@@ -13,5 +13,6 @@ public class ApplicationDBContext : DbContext
     public DbSet<ProjectAPI.Models.Task> Tasks { get; set; } = null!;
     public DbSet<Assignee> Assignees { get; set; } = null!;
     public DbSet<Member> Members { get; set; } = null!;
+    public DbSet<Request> Requests { get; set; } = null!;
 
 }
