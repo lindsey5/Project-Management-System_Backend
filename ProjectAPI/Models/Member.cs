@@ -9,7 +9,8 @@ public class Member
     public int User_Id { get; set; }
     public int Project_Id { get; set;}
     public string Role { get; set; } = string.Empty;
-
+    public DateTime Joined_At { get; set; }
+    
     [ForeignKey("User_Id")]
     public User? User { get; set; }
 

@@ -4,6 +4,7 @@ using System.Security.Claims;
 using ProjectAPI.Models;
 using ProjectAPI.Services;
 using Microsoft.EntityFrameworkCore;
+using Task = ProjectAPI.Models.Task;
 
 namespace ProjectAPI.Controllers
 {
@@ -34,7 +35,7 @@ namespace ProjectAPI.Controllers
             // If the project is not found, return a NotFound response
             if (project == null) return NotFound(new { message = "Project not found." });
 
-            if(project.User_id == Convert.ToInt32(idClaim.Value)) return Ok(new { success = true, project, role = "admin"});
+            if(project.User_id == Convert.ToInt32(idClaim.Value)) return Ok(new { success = true, project, role = "Admin"});
 
             var ProjectMember = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == project.Id);
             
@@ -50,14 +51,31 @@ namespace ProjectAPI.Controllers
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-            if (idClaim == null) return Unauthorized(new { success = false, message = "ID not found in token." });
+            if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                return Unauthorized(new { success = false, message = "Invalid user token" });
+            // Get owned projects
+            var ownedProjects = await _context.Projects
+                .Where(p => p.User_id == userId)
+                .Include(p => p.User)
+                .ToListAsync();
 
-            var projects = await _context.Projects
-            .Where(p => p.User_id == Convert.ToInt32(idClaim.Value))
-            .Include(p => p.User)
-            .ToListAsync();
+            // Get project IDs where user is a member
+            var memberProjectIds = await _context.Members
+                .Where(m => m.User_Id == userId)
+                .Select(m => m.Project_Id)
+                .Distinct()
+                .ToListAsync();
 
-            return Ok(new { success = true, projects });
+            // Get member projects (excluding already owned ones)
+            var memberProjects = await _context.Projects
+                .Where(p => memberProjectIds.Contains(p.Id))
+                .Include(p => p.User)
+                .ToListAsync();
+
+            return Ok(new { 
+                success = true, 
+                projects = ownedProjects.Concat(memberProjects)
+            });
         }
 
         [Authorize]
@@ -94,7 +112,7 @@ namespace ProjectAPI.Controllers
                     Start_date = project.Start_date,
                     End_date = project.End_date,
                     Created_At = DateTime.Now,
-                    Category = project.Category,
+                    Type = project.Type,
                     Status = "Active",
                     User_id = user.Id,
                     Project_code = code

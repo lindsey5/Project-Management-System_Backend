@@ -37,12 +37,12 @@ public class AssigneeService
                     var assignee = new Assignee
                     {
                         Task_Id = task_Id,
-                        User_Id = assigneeUserId
+                        Member_Id = assigneeUserId
                     };
                     var newAssignee = await CreateAssignee(assignee);
                     Assignees.Add(new AssigneeBaseDto{
                         Id = newAssignee.Id,
-                        User_Id = newAssignee.User_Id,
+                        Member_Id = newAssignee.Member_Id,
                         Task_Id = newAssignee.Task_Id
                     });
                 }

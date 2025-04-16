@@ -8,7 +8,7 @@ namespace ProjectAPI.Models
         public string Project_code { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public DateOnly Start_date { get; set; }
         public DateOnly End_date { get; set; }
