@@ -17,5 +17,6 @@ namespace ProjectAPI.Models
 
         [ForeignKey(nameof(User_id))]
         public User? User { get; set; }
+
     }
 }

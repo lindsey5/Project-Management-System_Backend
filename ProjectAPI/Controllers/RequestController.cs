@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,10 +21,53 @@ namespace ProjectAPI.Controllers
             public string Project_Code { get; set; } = string.Empty;
         }
 
+        [Authorize]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateRequest(int id, string status = "Pending"){
+            try
+            {
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
+                    return Unauthorized(new { success = false, message = "Invalid user token" });
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { success = false, message = "User not found" });
+
+                var request = await _context.Requests.FindAsync(id);
+                if (request == null)
+                    return NotFound(new { success = false, message = "Request not found" });
+
+                var isAuthorized = await _context.Members
+                    .AnyAsync(m => m.Project_Id == request.Project_Id && m.User_Id == userId && m.Role == "Admin");
+                if (!isAuthorized)
+                    return Unauthorized(new { success = false, message = "Only project admin can update." });
+
+                request.Status = status;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, request });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An internal error occurred. Please try again later.",
+                    error = ex.Message
+                });
+            }
+        }
+
 
         [Authorize]
         [HttpGet("{project_id}")]
-        public async Task<IActionResult> GetRequests(int project_id, int page = 1, int limit = 10)
+        public async Task<IActionResult> GetRequests(
+            int project_id, 
+            string searchTerm = "", 
+            string status = "", 
+            int page = 1, int limit = 10
+        )
         {
             try{
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -46,14 +88,31 @@ namespace ProjectAPI.Controllers
                 
                 if(!isAdmin) return Unauthorized(new { success = false, message = "Only admin is authorized"});
 
-                var totalRequests = await _context.Requests.CountAsync();
+                var loweredSearchTerm = searchTerm?.ToLower();
+                var totalRequests = await _context.Requests
+                    .Include(r => r.User)
+                    .Where(r =>  (string.IsNullOrEmpty(status) || r.Status == status) && (
+                        string.IsNullOrEmpty(loweredSearchTerm) || 
+                        r.User.Email.ToLower().Contains(loweredSearchTerm) ||
+                        r.User.Firstname.ToLower().Contains(loweredSearchTerm) ||
+                        r.User.Lastname.ToLower().Contains(loweredSearchTerm)
+                    ))
+                    .CountAsync();
 
                 var requests = await _context.Requests
-                    .Where(r => r.Project_Id == project_id)
+                    .Include(r => r.User)
+                    .Where(r => r.Project_Id == project_id && 
+                        (string.IsNullOrEmpty(status) || r.Status == status)
+                        && (
+                            string.IsNullOrEmpty(loweredSearchTerm) || 
+                            r.User.Email.ToLower().Contains(loweredSearchTerm) ||
+                            r.User.Firstname.ToLower().Contains(loweredSearchTerm) ||
+                            r.User.Lastname.ToLower().Contains(loweredSearchTerm)
+                        )
+                    )
                     .OrderByDescending(d => d.Request_Date)
                     .Skip((page - 1) * limit)
                     .Take(limit)
-                    .Include(r => r.User)
                     .ToListAsync();
 
                 return Ok(new { 
@@ -68,10 +127,8 @@ namespace ProjectAPI.Controllers
                 return StatusCode(500, new { 
                     success = false, 
                     message = "An internal error occurred",
-                    ex
                 });
             }
-
         }
 
 
@@ -133,7 +190,7 @@ namespace ProjectAPI.Controllers
                     Project_Id = project.Id,
                     User_Id = userId,
                     Status = "Pending",
-                    Request_Date = DateTime.UtcNow
+                    Request_Date = DateTime.Now
                 };
 
                 _context.Requests.Add(request);

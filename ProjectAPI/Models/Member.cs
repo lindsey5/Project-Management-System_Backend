@@ -14,4 +14,7 @@ public class Member
     [ForeignKey(nameof(User_Id))]
     public User? User { get; set; }
 
+    [ForeignKey(nameof(Project_Id))]
+    public Project? Project { get; set; }
+
 }
