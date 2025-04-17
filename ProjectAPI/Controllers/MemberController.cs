@@ -98,7 +98,8 @@ namespace ProjectAPI.Controllers
                 var newMember = new Member{
                     Project_Id = member.Project_Id,
                     User_Id = member.User_Id,
-                    Role = "Member"
+                    Role = "Member",
+                    Joined_At = DateTime.Now
                 };
                 _context.Members.Add(newMember);
                 await _context.SaveChangesAsync();

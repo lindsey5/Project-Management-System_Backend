@@ -35,8 +35,6 @@ namespace ProjectAPI.Controllers
             // If the project is not found, return a NotFound response
             if (project == null) return NotFound(new { message = "Project not found." });
 
-            if(project.User_id == Convert.ToInt32(idClaim.Value)) return Ok(new { success = true, project, role = "Admin"});
-
             var ProjectMember = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == project.Id);
             
             if(ProjectMember == null) return Unauthorized(new { success = false, message = "User not found in the project"});
@@ -53,20 +51,13 @@ namespace ProjectAPI.Controllers
 
             if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                 return Unauthorized(new { success = false, message = "Invalid user token" });
-            // Get owned projects
-            var ownedProjects = await _context.Projects
-                .Where(p => p.User_id == userId)
-                .Include(p => p.User)
-                .ToListAsync();
 
-            // Get project IDs where user is a member
             var memberProjectIds = await _context.Members
                 .Where(m => m.User_Id == userId)
                 .Select(m => m.Project_Id)
                 .Distinct()
                 .ToListAsync();
 
-            // Get member projects (excluding already owned ones)
             var memberProjects = await _context.Projects
                 .Where(p => memberProjectIds.Contains(p.Id))
                 .Include(p => p.User)
@@ -74,7 +65,7 @@ namespace ProjectAPI.Controllers
 
             return Ok(new { 
                 success = true, 
-                projects = ownedProjects.Concat(memberProjects)
+                projects = memberProjects
             });
         }
 
@@ -120,6 +111,14 @@ namespace ProjectAPI.Controllers
 
                 // Add the new project to the context and save changes asynchronously
                 _context.Projects.Add(newProject);
+                await _context.SaveChangesAsync();
+
+                _context.Members.Add(new Member{
+                    Project_Id = newProject.Id,
+                    User_Id = user.Id,
+                    Role = "Admin",
+                    Joined_At = DateTime.Now
+                });
                 await _context.SaveChangesAsync();
 
                 return Ok(new { success = true, data = newProject });

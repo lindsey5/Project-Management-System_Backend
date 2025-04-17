@@ -54,7 +54,7 @@ namespace ProjectAPI.Controllers
 
             if (user == null) return Unauthorized(new { message = "User not found." }); 
 
-            if(!taskCreateDto.AssigneesId.Any()) return BadRequest("AssigneesId is required");
+            if(taskCreateDto.AssigneesMemberId.Count() == 0) return BadRequest("AssigneesMemberId is required");
 
             if(await _context.Projects.FirstOrDefaultAsync(p => p.User_id == user.Id) == null) return BadRequest("Creating task failed."); 
 
@@ -72,18 +72,19 @@ namespace ProjectAPI.Controllers
 
                 await _context.SaveChangesAsync();
 
-                var Assignees = await _assigneeService.CreateAssignees(taskCreateDto.AssigneesId, task.Id, taskCreateDto.Project_Id);
+                var Assignees = await _assigneeService.CreateAssignees(_context, taskCreateDto.AssigneesMemberId, task.Id, taskCreateDto.Project_Id);
 
                 if(Assignees != null && Assignees.Count > 0){
                     return Ok(new {success = "true", task = new TaskResponseDto(task, Assignees)});
                 }
-                return BadRequest("Error creating a task");
+                return BadRequest(new {message = "Error creating a task", taskCreateDto});
             }catch (DbUpdateException ex) when (ex.InnerException is MySqlException mySqlEx && mySqlEx.Number == 1452){
                 
-                return BadRequest(ex.Message);
+                return BadRequest(ex);
             }
             catch (Exception ex){
-                return StatusCode(500, new { Error = ex.Message });
+                
+                return StatusCode(500, new { Error = ex });
             }
 
         }

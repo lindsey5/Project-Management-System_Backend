@@ -54,16 +54,11 @@ namespace ProjectAPI.Controllers
                         message = "Project not found" 
                 });
 
-                bool isOwner = await _context.Projects
-                    .AnyAsync(p => p.Id == project.Id && p.User_id == userId);
-                    
-                bool isMember = await _context.Members
-                    .AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId);
-
-                if (isOwner || isMember)
+                if (await _context.Members
+                    .AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId))
                     return Conflict(new { 
                         success = false, 
-                        message = "User is already part of this project",
+                        message = "You're already part of this project",
                     });
 
                 var existingRequest = await _context.Requests

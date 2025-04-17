@@ -6,5 +6,5 @@ namespace ProjectAPI.Models;
 public class TaskCreateDto : TaskBaseDto
 {
     [Required]
-    public List<int> AssigneesId { get; set; } = new List<int>();
+    public List<int> AssigneesMemberId { get; set; } = new List<int>();
 }
