@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
@@ -21,6 +22,62 @@ namespace ProjectAPI.Controllers
             _assigneeService = assigneeService;
         }
 
+        [Authorize]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateTask([FromBody] Task UpdatedTask, int id)
+        {
+            try{
+                var task = await _context.Tasks.FindAsync(id);
+
+                if (task == null) return NotFound(new { success = false, message = "Task not found"});
+                
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+                if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                    return Unauthorized(new { success = false, message = "Invalid user token" });
+
+                var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == task.Project_Id);
+                
+                if(isAuthorize == null) return Unauthorized(new { success = false, message = "You're not part of this project", task.Project_Id });
+
+                task.Status = UpdatedTask.Status;
+                task.Task_Name = UpdatedTask.Task_Name;
+                task.Description = UpdatedTask.Description;
+                task.Priority = UpdatedTask.Priority;
+                task.Due_date = UpdatedTask.Due_date;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, updatedTask = task});
+
+            }catch(Exception ex){
+                return StatusCode(500, new { Error = ex.Message });
+            }
+        }
+
+
+        [Authorize]
+        [HttpGet()]
+        public async Task<IActionResult> GetTasks([FromQuery] int project_id)
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                return Unauthorized(new { success = false, message = "Invalid user token" });
+
+            var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == project_id);
+            
+            if(isAuthorize == null) return Unauthorized(new { success = false, message = "You're not part of this project", project_id });
+
+            var tasks = await _context.Tasks
+                .Where(t => t.Project_Id == project_id)
+                .Include(t => t.Assignees)
+                    .ThenInclude(a => a.Member)
+                        .ThenInclude(m => m.User)
+                .ToListAsync();
+
+            return Ok(new { success = true, tasks});
+        }
 
         [Authorize]
         [HttpGet("{id}")]
@@ -75,7 +132,7 @@ namespace ProjectAPI.Controllers
                 var Assignees = await _assigneeService.CreateAssignees(_context, taskCreateDto.AssigneesMemberId, task.Id, taskCreateDto.Project_Id);
 
                 if(Assignees != null && Assignees.Count > 0){
-                    return Ok(new {success = "true", task = new TaskResponseDto(task, Assignees)});
+                    return Ok(new {success = "true", task});
                 }
                 return BadRequest(new {message = "Error creating a task", taskCreateDto});
             }catch (DbUpdateException ex) when (ex.InnerException is MySqlException mySqlEx && mySqlEx.Number == 1452){
@@ -84,7 +141,7 @@ namespace ProjectAPI.Controllers
             }
             catch (Exception ex){
                 
-                return StatusCode(500, new { Error = ex });
+                return StatusCode(500, new { Error = ex.Message });
             }
 
         }

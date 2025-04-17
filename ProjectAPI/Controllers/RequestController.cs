@@ -22,8 +22,62 @@ namespace ProjectAPI.Controllers
             public string Project_Code { get; set; } = string.Empty;
         }
 
+
         [Authorize]
-        [HttpPost()]public async Task<IActionResult> CreateRequest([FromBody] RequestDto requestDto)
+        [HttpGet("{project_id}")]
+        public async Task<IActionResult> GetRequests(int project_id, int page = 1, int limit = 10)
+        {
+            try{
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
+                    return Unauthorized(new { success = false, message = "Invalid user token" });
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { success = false, message = "User not found" });
+                
+                var project = await _context.Projects.FindAsync(project_id); 
+                if(project == null) 
+                    return NotFound(new { success = false, message = "Project not found"});
+
+                bool isAdmin = await _context.Members
+                    .AnyAsync(m => m.Project_Id == project.Id 
+                        && m.User_Id == user.Id && m.Role == "Admin");
+                
+                if(!isAdmin) return Unauthorized(new { success = false, message = "Only admin is authorized"});
+
+                var totalRequests = await _context.Requests.CountAsync();
+
+                var requests = await _context.Requests
+                    .Where(r => r.Project_Id == project_id)
+                    .OrderByDescending(d => d.Request_Date)
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
+                    .Include(r => r.User)
+                    .ToListAsync();
+
+                return Ok(new { 
+                    success = true, 
+                    page,
+                    limit,
+                    totalPages = (int)Math.Ceiling((double)totalRequests / limit),
+                    requests,
+                });
+
+            }catch(Exception ex){
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "An internal error occurred",
+                    ex
+                });
+            }
+
+        }
+
+
+        [Authorize]
+        [HttpPost()]
+        public async Task<IActionResult> CreateRequest([FromBody] RequestDto requestDto)
         {
             try
             {

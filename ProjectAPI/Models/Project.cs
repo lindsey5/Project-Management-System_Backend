@@ -15,7 +15,7 @@ namespace ProjectAPI.Models
         public DateTime Created_At { get; set; }
         public int User_id { get; set; } // Foreign key
 
-        [ForeignKey("User_id")]
+        [ForeignKey(nameof(User_id))]
         public User? User { get; set; }
     }
 }

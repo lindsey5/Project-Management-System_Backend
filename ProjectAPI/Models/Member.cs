@@ -11,7 +11,7 @@ public class Member
     public string Role { get; set; } = string.Empty;
     public DateTime Joined_At { get; set; }
     
-    [ForeignKey("User_Id")]
+    [ForeignKey(nameof(User_Id))]
     public User? User { get; set; }
 
 }

@@ -11,6 +11,6 @@ public class Request
     public string Status { get; set; } = string.Empty;
     public DateTime Request_Date { get; set; }
 
-    [ForeignKey("User_Id")]
+    [ForeignKey(nameof(User_Id))]
     public User? User { get; set; }
 }

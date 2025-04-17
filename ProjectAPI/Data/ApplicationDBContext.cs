@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ProjectAPI.Models;
+using Task = ProjectAPI.Models.Task;
 
 public class ApplicationDBContext : DbContext
 {
@@ -14,5 +15,18 @@ public class ApplicationDBContext : DbContext
     public DbSet<Assignee> Assignees { get; set; } = null!;
     public DbSet<Member> Members { get; set; } = null!;
     public DbSet<Request> Requests { get; set; } = null!;
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Assignee>()
+            .HasOne(a => a.Member)
+            .WithMany() 
+            .HasForeignKey(a => a.Member_Id);
+
+        modelBuilder.Entity<Assignee>()
+            .HasOne(a => a.Task)
+            .WithMany(t => t.Assignees)
+            .HasForeignKey(a => a.Task_Id);
+    }
 
 }
