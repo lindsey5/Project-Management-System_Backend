@@ -105,15 +105,11 @@ namespace ProjectAPI.Controllers
 
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-            if (idClaim == null) return Unauthorized(new { success = false, message = "ID not found in token." });
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == Convert.ToInt32(idClaim.Value));
-
-            if (user == null) return Unauthorized(new { message = "User not found." }); 
+            if (idClaim == null || !int.TryParse(idClaim.Value, out int userId)) return Unauthorized(new { success = false, message = "ID not found in token." });
 
             if(taskCreateDto.AssigneesMemberId.Count() == 0) return BadRequest("AssigneesMemberId is required");
 
-            if(await _context.Projects.FirstOrDefaultAsync(p => p.User_id == user.Id) == null) return BadRequest("Creating task failed."); 
+            if(await _context.Projects.FirstOrDefaultAsync(p => p.User_id == userId) == null) return BadRequest("Creating task failed."); 
 
             try {
                 var task = new Task{

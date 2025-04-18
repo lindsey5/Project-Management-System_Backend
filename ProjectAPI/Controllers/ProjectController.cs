@@ -83,14 +83,8 @@ namespace ProjectAPI.Controllers
                 // Get the user ID from the claims
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-                if (idClaim == null) 
+                if (idClaim == null || !int.TryParse(idClaim.Value, out int userId)) 
                     return Unauthorized(new { message = "ID not found in token." });
-
-                // Fetch the user asynchronously
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == Convert.ToInt32(idClaim.Value));
-
-                if (user == null) 
-                    return Unauthorized(new { message = "User not found." });
 
                 // Generate unique project code
                 string code = _projectService.GenerateUniqueProjectCode();
@@ -105,7 +99,7 @@ namespace ProjectAPI.Controllers
                     Created_At = DateTime.Now,
                     Type = project.Type,
                     Status = "Active",
-                    User_id = user.Id,
+                    User_id = userId,
                     Project_code = code
                 };
 
@@ -115,7 +109,7 @@ namespace ProjectAPI.Controllers
 
                 _context.Members.Add(new Member{
                     Project_Id = newProject.Id,
-                    User_Id = user.Id,
+                    User_Id = userId,
                     Role = "Admin",
                     Joined_At = DateTime.Now
                 });

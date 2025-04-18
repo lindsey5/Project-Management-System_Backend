@@ -22,13 +22,9 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> GetMembers([FromQuery] string project_code)
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (idClaim == null)
+            if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                 return Unauthorized(new { success = false, message = "ID not found in token." });
 
-            var userId = Convert.ToInt32(idClaim.Value);
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null)
-                return Unauthorized(new { message = "User not found." });
 
             var project = await _context.Projects
                 .Include(p => p.User)
@@ -79,18 +75,14 @@ namespace ProjectAPI.Controllers
 
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
             
-                if(idClaim == null ) return Unauthorized(new { message = "ID not found in token." });
-
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == Convert.ToInt32(idClaim.Value));
-
-                if (user == null) return Unauthorized(new { message = "User not found." });
+                if(idClaim == null || !int.TryParse(idClaim.Value, out int userId)) return Unauthorized(new { message = "ID not found in token." });
                 
-                var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project_Id && (p.User_id == user.Id));
+                var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project_Id && (p.User_id == userId));
 
                 if(project == null || (project == null && 
                 await _context.Members.FirstOrDefaultAsync(m => 
                     m.Role == "Admin" && 
-                    m.User_Id == user.Id && 
+                    m.User_Id == userId && 
                     m.Project_Id == member.Project_Id) == null)) return Unauthorized(new { success = false, message = "Member creation failed: Admin-only action"});
                 
                 if(await _context.Members.FirstOrDefaultAsync(m => m.User_Id == member.User_Id && m.Project_Id == member.Project_Id) != null) return Conflict(new { success = false, message = "User is already joined."});
