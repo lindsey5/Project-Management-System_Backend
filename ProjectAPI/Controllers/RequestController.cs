@@ -163,7 +163,7 @@ namespace ProjectAPI.Controllers
                 });
 
                 if (await _context.Members
-                    .AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId))
+                    .AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId && m.Status == "Active"))
                     return Conflict(new { 
                         success = false, 
                         message = "You're already part of this project",
@@ -203,8 +203,7 @@ namespace ProjectAPI.Controllers
             {
                 return StatusCode(500, new { 
                     success = false, 
-                    message = "An internal error occurred",
-                    ex
+                    message = $"An internal error occurred, {ex.Message}",
                 });
             }
         }

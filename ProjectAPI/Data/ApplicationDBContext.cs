@@ -18,5 +18,6 @@ public class ApplicationDBContext : DbContext
     public DbSet<Request> Requests { get; set; } = null!;
 
     public DbSet<Task_Attachment> Task_Attachments { get; set; } = null!;
+    public DbSet<Task_History> Task_Histories  { get; set; } = null!;
 
 }

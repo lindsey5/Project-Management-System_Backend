@@ -18,5 +18,7 @@ namespace ProjectAPI.Models
         [ForeignKey(nameof(User_id))]
         public User? User { get; set; }
 
+        public ICollection<Member> Members { get; set; } = new List<Member>();
+
     }
 }

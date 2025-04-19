@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ProjectAPI.Models;
 
-public class TaskCreateDto : TaskBaseDto
+public class TaskCreateDto : BaseTask
 {
     public byte[]? Attachments { get; set; } = null;
 

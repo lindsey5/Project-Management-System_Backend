@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
@@ -36,15 +35,50 @@ namespace ProjectAPI.Controllers
                 if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                     return Unauthorized(new { success = false, message = "Invalid user token" });
 
+                var user = await _context.Users.FindAsync(userId);
+
+                if(user == null) return NotFound(new { success = false, message = "User not found."}); 
+
                 var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == task.Project_Id);
                 
-                if(isAuthorize == null) return Unauthorized(new { success = false, message = "You're not part of this project", task.Project_Id });
+                if(isAuthorize == null) return Unauthorized(new { success = false, message = "Access is restricted to members only." });
 
+                var changes = new List<Task_History>();
+
+                void AddHistory(string description, string prev, string next)
+                {
+                    changes.Add(new Task_History
+                    {
+                        Action_Description = $"{user.Firstname} {description}",
+                        Prev_Value = prev,
+                        New_Value = next,
+                        Date_Time = DateTime.Now,
+                        Task_Id = task.Id
+                    });
+                }
+
+                if (task.Status != UpdatedTask.Status)
+                    AddHistory("changed the status", task.Status, UpdatedTask.Status);
+
+                if (task.Task_Name != UpdatedTask.Task_Name)
+                    AddHistory("changed the task name", task.Task_Name, UpdatedTask.Task_Name);
+
+                if (task.Description != UpdatedTask.Description)
+                    AddHistory("changed the description", task.Description, UpdatedTask.Description);
+
+                if (task.Priority != UpdatedTask.Priority)
+                    AddHistory("changed the priority", task.Priority, UpdatedTask.Priority);
+
+                if (task.Due_date != UpdatedTask.Due_date)
+                    AddHistory("changed the due date", task.Due_date.ToString(), UpdatedTask.Due_date.ToString());
+
+                _context.Task_Histories.AddRange(changes);
                 task.Status = UpdatedTask.Status;
                 task.Task_Name = UpdatedTask.Task_Name;
                 task.Description = UpdatedTask.Description;
                 task.Priority = UpdatedTask.Priority;
                 task.Due_date = UpdatedTask.Due_date;
+                task.Updated_At = DateTime.Now;
 
                 await _context.SaveChangesAsync();
 
@@ -67,10 +101,12 @@ namespace ProjectAPI.Controllers
 
             var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == project_id);
             
-            if(isAuthorize == null) return Unauthorized(new { success = false, message = "You're not part of this project", project_id });
+            if(isAuthorize == null) return Unauthorized(new { success = false, message = "Access is restricted to members only." });
 
             var tasks = await _context.Tasks
                 .Where(t => t.Project_Id == project_id)
+                .Include(t => t.Member)
+                    .ThenInclude(m => m.User)
                 .Include(t => t.Assignees)
                     .ThenInclude(a => a.Member)
                         .ThenInclude(m => m.User)
@@ -107,9 +143,13 @@ namespace ProjectAPI.Controllers
 
             if (idClaim == null || !int.TryParse(idClaim.Value, out int userId)) return Unauthorized(new { success = false, message = "ID not found in token." });
 
-            if(taskCreateDto.AssigneesMemberId.Count() == 0) return BadRequest("AssigneesMemberId is required");
+            var user = await _context.Users.FindAsync(userId);
 
-            if(await _context.Projects.FirstOrDefaultAsync(p => p.User_id == userId) == null) return BadRequest("Creating task failed."); 
+            if(user == null) return NotFound(new { success = false, message = "User not found."}); 
+            
+            var member = await _context.Members.FirstOrDefaultAsync(m => m.Project_Id == taskCreateDto.Project_Id && m.User_Id == userId && m.Role == "Admin");
+
+            if(member == null ) return Unauthorized("Access is restricted to administrators only."); 
 
             try {
                 var task = new Task{
@@ -119,6 +159,9 @@ namespace ProjectAPI.Controllers
                     Priority = taskCreateDto.Priority,
                     Status = taskCreateDto.Status ?? "To Do",
                     Project_Id = taskCreateDto.Project_Id,
+                    Created_At = DateTime.Now,
+                    Updated_At = DateTime.Now,
+                    Creator = member.Id
                 };
 
                 _context.Tasks.Add(task);
@@ -127,10 +170,9 @@ namespace ProjectAPI.Controllers
 
                 var Assignees = await _assigneeService.CreateAssignees(_context, taskCreateDto.AssigneesMemberId, task.Id, taskCreateDto.Project_Id);
 
-                if(Assignees != null && Assignees.Count > 0){
-                    return Ok(new {success = "true", task});
-                }
-                return BadRequest(new {message = "Error creating a task", taskCreateDto});
+                await _context.SaveChangesAsync();
+                return Ok(new {success = "true", task});
+                
             }catch (DbUpdateException ex) when (ex.InnerException is MySqlException mySqlEx && mySqlEx.Number == 1452){
                 
                 return BadRequest(ex);

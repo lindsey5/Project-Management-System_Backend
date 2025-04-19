@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ProjectAPI.Models;
@@ -10,6 +9,8 @@ public class Member
     public int Project_Id { get; set;}
     public string Role { get; set; } = string.Empty;
     public DateTime Joined_At { get; set; }
+
+    public string Status { get; set; } = string.Empty; 
     
     [ForeignKey(nameof(User_Id))]
     public User? User { get; set; }

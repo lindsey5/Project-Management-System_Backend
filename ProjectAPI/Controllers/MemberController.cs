@@ -41,7 +41,7 @@ namespace ProjectAPI.Controllers
                 return Unauthorized(new { success = false, message = "You must be a member or admin." });
 
             var members = await _context.Members
-                .Where(m => m.Project_Id == project.Id)
+                .Where(m => m.Project_Id == project.Id && m.Status == "Active")
                 .Include(m => m.User)
                 .ToListAsync();
 
@@ -77,30 +77,38 @@ namespace ProjectAPI.Controllers
             
                 if(idClaim == null || !int.TryParse(idClaim.Value, out int userId)) return Unauthorized(new { message = "ID not found in token." });
                 
-                var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project_Id && (p.User_id == userId));
+                var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project_Id);
 
-                if(project == null || (project == null && 
-                await _context.Members.FirstOrDefaultAsync(m => 
-                    m.Role == "Admin" && 
-                    m.User_Id == userId && 
-                    m.Project_Id == member.Project_Id) == null)) return Unauthorized(new { success = false, message = "Member creation failed: Admin-only action"});
+                if(project == null) return NotFound(new { success = false, message = "Project doesn't exist"});
                 
-                if(await _context.Members.FirstOrDefaultAsync(m => m.User_Id == member.User_Id && m.Project_Id == member.Project_Id) != null) return Conflict(new { success = false, message = "User is already joined."});
+                var isAdmin = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Role == "Admin" && m.Project_Id == project.Id);
 
-                var newMember = new Member{
-                    Project_Id = member.Project_Id,
-                    User_Id = member.User_Id,
-                    Role = "Member",
-                    Joined_At = DateTime.Now
-                };
-                _context.Members.Add(newMember);
-                await _context.SaveChangesAsync();
-
-                var createdMember = await _context.Members
-                    .Include(m => m.User)
-                    .FirstOrDefaultAsync(m => m.Id == newMember.Id);
+                if(!isAdmin) return Unauthorized(new { success = false, message = "Member creation failed: Admin-only action"});
                 
-                return CreatedAtAction(nameof(GetMemberById), new { id = newMember.Id }, createdMember);
+                var joinedMember = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == member.User_Id && m.Project_Id == member.Project_Id);
+
+                if(joinedMember != null && joinedMember.Status == "Active") {
+                    return Conflict(new { success = false, message = "User is already joined."});
+                }else if(joinedMember != null){
+                    joinedMember.Status = "Active";
+                    await _context.SaveChangesAsync();
+                    return Ok(new { success = true, joinedMember});
+                }else{
+                    var newMember = new Member{
+                        Project_Id = member.Project_Id,
+                        User_Id = member.User_Id,
+                        Role = "Member",
+                        Joined_At = DateTime.Now
+                    };
+                    _context.Members.Add(newMember);
+                    await _context.SaveChangesAsync();
+
+                    var createdMember = await _context.Members
+                        .Include(m => m.User)
+                        .FirstOrDefaultAsync(m => m.Id == newMember.Id);
+                    
+                    return CreatedAtAction(nameof(GetMemberById), new { id = newMember.Id }, createdMember);
+                }
             }catch(Exception ex){
                 return StatusCode(500, new { 
                     success = false, 

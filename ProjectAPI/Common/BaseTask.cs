@@ -1,6 +1,6 @@
 namespace ProjectAPI.Models;
 
-public abstract class TaskBaseDto
+public abstract class BaseTask
 {
     public int Id { get; set; } // Primary key
     public int Project_Id { get; set; }

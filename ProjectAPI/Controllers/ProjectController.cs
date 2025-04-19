@@ -35,7 +35,12 @@ namespace ProjectAPI.Controllers
             // If the project is not found, return a NotFound response
             if (project == null) return NotFound(new { message = "Project not found." });
 
-            var ProjectMember = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == project.Id);
+            var ProjectMember = await _context.Members
+                .FirstOrDefaultAsync(m => 
+                    m.User_Id == Convert.ToInt32(idClaim.Value) && 
+                    m.Project_Id == project.Id &&
+                    m.Status == "Active"
+                    );
             
             if(ProjectMember == null) return Unauthorized(new { success = false, message = "User not found in the project"});
 
@@ -52,14 +57,14 @@ namespace ProjectAPI.Controllers
             if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                 return Unauthorized(new { success = false, message = "Invalid user token" });
 
-            var memberProjectIds = await _context.Members
-                .Where(m => m.User_Id == userId)
+            var projectIds = await _context.Members
+                .Where(m => m.User_Id == userId && m.Status == "Active")
                 .Select(m => m.Project_Id)
                 .Distinct()
                 .ToListAsync();
 
             var memberProjects = await _context.Projects
-                .Where(p => memberProjectIds.Contains(p.Id))
+                .Where(p => projectIds.Contains(p.Id))
                 .Include(p => p.User)
                 .ToListAsync();
 

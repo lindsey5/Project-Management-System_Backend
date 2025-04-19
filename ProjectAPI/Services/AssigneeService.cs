@@ -7,15 +7,10 @@ namespace ProjectAPI.Services;
 
 public class AssigneeService
 {   
-    private readonly ApplicationDBContext _context;
 
-    public AssigneeService(ApplicationDBContext applicationDBContext){
-        _context = applicationDBContext;
-    }
-
-    public async Task<List<AssigneeBaseDto>> CreateAssignees(ApplicationDBContext _context, List<int> assigneesMemberId, int task_Id, int project_Id)
+    public async Task<List<Assignee>> CreateAssignees(ApplicationDBContext _context, List<int> assigneesMemberId, int task_Id, int project_Id)
     {
-        var Assignees = new List<AssigneeBaseDto>();
+        var Assignees = new List<Assignee>();
 
         if (assigneesMemberId == null || !assigneesMemberId.Any())
             return Assignees;
@@ -39,7 +34,7 @@ public class AssigneeService
             _context.Assignees.Add(newAssignee);
             await _context.SaveChangesAsync();
 
-            Assignees.Add(new AssigneeBaseDto
+            Assignees.Add(new Assignee
             {
                 Id = newAssignee.Id,
                 Member_Id = newAssignee.Member_Id,
