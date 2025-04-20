@@ -45,7 +45,7 @@ namespace ProjectAPI.Controllers
                 .Include(m => m.User)
                 .ToListAsync();
 
-            return Ok(new { success = true, members, creator = project.User });
+            return Ok(new { success = true, members });
         }
 
         [Authorize]

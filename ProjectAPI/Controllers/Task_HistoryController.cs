@@ -18,9 +18,10 @@ namespace ProjectAPI.Controllers
 
         [Authorize]
         [HttpGet("{task_id}")]
-        public async Task<IActionResult> GetTaskHistory(int task_id){
+        public async Task<IActionResult> GetTaskHistory(int task_id, [FromQuery] int page = 1){
             try
             {
+                int limit = 5;
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
                 if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
                     return Unauthorized(new { success = false, message = "Invalid user token" });
@@ -39,6 +40,8 @@ namespace ProjectAPI.Controllers
                 var history = await _context.Task_Histories
                         .Where(t => t.Task_Id == task_id)
                         .OrderByDescending(t => t.Date_Time)
+                        .Skip((page - 1) * limit)
+                        .Take(limit)
                         .ToListAsync();
                 
                 return Ok(new { success = true, history});
