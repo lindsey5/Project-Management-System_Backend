@@ -105,6 +105,7 @@ namespace ProjectAPI.Controllers
 
             var tasks = await _context.Tasks
                 .Where(t => t.Project_Id == project_id)
+                .OrderBy(t => t.Due_date)
                 .Include(t => t.Member)
                     .ThenInclude(m => m.User)
                 .Include(t => t.Assignees)
