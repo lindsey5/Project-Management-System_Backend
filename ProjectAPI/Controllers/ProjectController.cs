@@ -116,7 +116,8 @@ namespace ProjectAPI.Controllers
                     Project_Id = newProject.Id,
                     User_Id = userId,
                     Role = "Admin",
-                    Joined_At = DateTime.Now
+                    Joined_At = DateTime.Now,
+                    Status = "Active"
                 });
                 await _context.SaveChangesAsync();
 
