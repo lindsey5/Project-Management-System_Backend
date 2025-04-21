@@ -15,7 +15,6 @@ namespace ProjectAPI.Controllers
             _context = context;
         }
 
-
         [Authorize]
         [HttpGet("{task_id}")]
         public async Task<IActionResult> GetTaskHistory(int task_id, [FromQuery] int page = 1){
