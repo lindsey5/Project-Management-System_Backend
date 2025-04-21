@@ -215,6 +215,7 @@ namespace ProjectAPI.Controllers
                 
                 var tasks = await _context.Tasks
                     .Where(t => taskIds.Contains(t.Id))
+                    .Include(t => t.Project)
                     .ToListAsync();
 
                 return Ok(new { success = true, tasks});
