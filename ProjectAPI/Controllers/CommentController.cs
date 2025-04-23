@@ -110,7 +110,7 @@ namespace ProjectAPI.Controllers
 
         [Authorize]
         [HttpPost("attachment")]
-        public async Task<IActionResult> CreateCommentAttachment([FromBody] CommentAttachmentDto commentAttachment){
+        public async Task<IActionResult> CreateCommentAttachment([FromForm] CommentAttachmentDto commentAttachment){
             try
                 {
                     var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
