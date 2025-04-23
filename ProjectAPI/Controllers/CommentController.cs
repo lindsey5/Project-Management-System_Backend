@@ -68,9 +68,11 @@ namespace ProjectAPI.Controllers
 
         [Authorize]
         [HttpGet("{task_id}")]
-        public async Task<IActionResult> GetComments(int task_id){
+        public async Task<IActionResult> GetComments(int task_id, [FromQuery] int page = 1){
             try
                 {
+                    int limit = 20;
+
                     var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
                     if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
                         return Unauthorized(new { success = false, message = "Invalid user token" });
@@ -93,7 +95,11 @@ namespace ProjectAPI.Controllers
                         .Include(c => c.Member)
                             .ThenInclude(m => m.User)
                         .Where(c => c.Task_Id == task_id)
+                        .OrderByDescending(c => c.Date_time)
+                        .Skip((page - 1) * limit)
+                        .Take(limit)
                         .ToListAsync();
+
                     return Ok(new { success = true, comments});
                     
                 }
@@ -142,8 +148,10 @@ namespace ProjectAPI.Controllers
                     var fileBytes = memoryStream.ToArray();
                     
                     var newCommentAttachment = new CommentAttachment{
+                        Name = commentAttachment.File.FileName,
                         Comment_Id = commentAttachment.Comment_Id,
-                        Content = fileBytes
+                        Content = fileBytes,
+                        Type = commentAttachment.File.ContentType,
                     };
 
                     _context.CommentAttachments.Add(newCommentAttachment);
@@ -160,7 +168,41 @@ namespace ProjectAPI.Controllers
                         success = false,
                         message = "An internal error occurred. Please try again later.",
                         error = ex.Message,
-                        file = commentAttachment.File
+                    });
+                }
+        }
+
+        [Authorize]
+        [HttpGet("attachment/{comment_id}")]
+        public async Task<IActionResult> GetCommentAttachments(int comment_id){
+            try
+                {
+                    var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                    if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
+                        return Unauthorized(new { success = false, message = "Invalid user token" });
+
+                    var user = await _context.Users.FindAsync(userId);
+                    if (user == null)
+                        return NotFound(new { success = false, message = "User not found" });
+                    
+                    var comment = await _context.Comments.FindAsync(comment_id);
+
+                    if(comment == null) return NotFound(new { success = false, message = "Comment not found"});
+                    
+                    var attachments = await _context.CommentAttachments
+                        .Where(a => a.Comment_Id == comment_id)
+                        .ToListAsync();
+                    
+                    return Ok(new { success = true, attachments});
+                    
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = "An internal error occurred. Please try again later.",
+                        error = ex.Message,
                     });
                 }
 
