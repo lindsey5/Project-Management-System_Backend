@@ -26,7 +26,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -43,6 +44,7 @@ builder.Services.AddSingleton(new AuthService(jwtSecret));
 // Register 
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<AssigneeService>();
+builder.Services.AddSignalR();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -68,6 +70,7 @@ app.UseCors("AllowMyOrigin");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHub<NotificationHub>("/notifhub");
 app.MapControllers();
 
 app.Run();

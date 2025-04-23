@@ -91,7 +91,9 @@ namespace ProjectAPI.Controllers
                 var loweredSearchTerm = searchTerm?.ToLower();
                 var totalRequests = await _context.Requests
                     .Include(r => r.User)
-                    .Where(r =>  (string.IsNullOrEmpty(status) || r.Status == status) && (
+                    .Where(r =>  
+                        r.Project_Id == project_id &&
+                        (string.IsNullOrEmpty(status) || r.Status == status) && ( 
                         string.IsNullOrEmpty(loweredSearchTerm) || 
                         r.User.Email.ToLower().Contains(loweredSearchTerm) ||
                         r.User.Firstname.ToLower().Contains(loweredSearchTerm) ||
@@ -101,7 +103,8 @@ namespace ProjectAPI.Controllers
 
                 var requests = await _context.Requests
                     .Include(r => r.User)
-                    .Where(r => r.Project_Id == project_id && 
+                    .Where(r => 
+                        r.Project_Id == project_id && 
                         (string.IsNullOrEmpty(status) || r.Status == status)
                         && (
                             string.IsNullOrEmpty(loweredSearchTerm) || 
@@ -120,6 +123,7 @@ namespace ProjectAPI.Controllers
                     page,
                     limit,
                     totalPages = (int)Math.Ceiling((double)totalRequests / limit),
+                    totalRequests,
                     requests,
                 });
 
@@ -154,6 +158,7 @@ namespace ProjectAPI.Controllers
                     return Unauthorized(new { success = false, message = "Invalid user token" });
 
                 var project = await _context.Projects
+                    .Include(p => p.User)
                     .FirstOrDefaultAsync(p => p.Project_code == requestDto.Project_Code);
                     
                 if (project == null)
@@ -196,7 +201,8 @@ namespace ProjectAPI.Controllers
                 // 7. Return response
                 return Ok( new {
                         success = true,
-                        message = "Request created successfully"
+                        message = "Request created successfully",
+                        project
                     });
             }
             catch (Exception ex)
