@@ -2,13 +2,13 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
-public class NotificationHub : Hub
+public class SignalHub : Hub
 {
     // Map user names to connection IDs
     private static ConcurrentDictionary<string, string> userConnections = new();
     private readonly ApplicationDBContext _context;
 
-    public NotificationHub(ApplicationDBContext context)
+    public SignalHub(ApplicationDBContext context)
     {
         _context = context;
     }

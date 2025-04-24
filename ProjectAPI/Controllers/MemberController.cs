@@ -67,6 +67,33 @@ namespace ProjectAPI.Controllers
         }
 
         [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteMember(int id)
+        {
+            var member = await _context.Members
+                .Include(m => m.User)
+                .FirstOrDefaultAsync(m => m.Id == id);
+
+            // If the project is not found, return a NotFound response
+            if (member == null) return NotFound(new { message = "Project not found." });
+
+            var project = await _context.Projects.AnyAsync(p => p.Id == member.Project_Id);
+
+            if(!project) return Unauthorized(new { success = false, message = "Deletion is restricted to admin or member only."});
+
+            member.Status = "Inactive";
+
+            var assignees = await _context.Assignees
+                .Where(a => a.Member_Id == member.Id)
+                .ToListAsync();
+            _context.RemoveRange(assignees);
+    
+            await _context.SaveChangesAsync();
+ 
+            return Ok(new { success = true, message = "Member successfully removed" });
+        }
+
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> CreateMember([FromBody] Member member)
         {
@@ -98,7 +125,8 @@ namespace ProjectAPI.Controllers
                         Project_Id = member.Project_Id,
                         User_Id = member.User_Id,
                         Role = "Member",
-                        Joined_At = DateTime.Now
+                        Joined_At = DateTime.Now,
+                        Status = "Active"
                     };
                     _context.Members.Add(newMember);
                     await _context.SaveChangesAsync();

@@ -70,7 +70,7 @@ app.UseCors("AllowMyOrigin");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapHub<NotificationHub>("/notifhub");
+app.MapHub<SignalHub>("/notifhub");
 app.MapControllers();
 
 app.Run();

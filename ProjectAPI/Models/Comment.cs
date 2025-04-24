@@ -12,4 +12,7 @@ public class Comment
     
     [ForeignKey(nameof(Member_Id))]
     public Member? Member { get; set; }
+    
+    [ForeignKey(nameof(Task_Id))]
+    public Task? Task { get; set; }  
 }

@@ -15,4 +15,5 @@ public class Task : BaseTask
     public Project? Project { get; set; }
     
     public ICollection<Assignee> Assignees { get; set; } = new List<Assignee>();
+    public ICollection<Comment> Comments { get; set; } = new List<Comment>();
 }

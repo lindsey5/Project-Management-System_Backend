@@ -71,7 +71,7 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> GetComments(int task_id, [FromQuery] int page = 1){
             try
                 {
-                    int limit = 20;
+                    int limit = 5;
 
                     var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
                     if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
@@ -91,6 +91,10 @@ namespace ProjectAPI.Controllers
 
                     if(member == null) return Unauthorized(new { success = false, message = "Unauthorized you must be a member of the project"});
 
+                    var totalComments = await _context.Comments
+                        .Where(c => c.Task_Id == task_id)
+                        .CountAsync();
+
                     var comments = await _context.Comments
                         .Include(c => c.Member)
                             .ThenInclude(m => m.User)
@@ -100,7 +104,7 @@ namespace ProjectAPI.Controllers
                         .Take(limit)
                         .ToListAsync();
 
-                    return Ok(new { success = true, comments});
+                    return Ok(new { success = true, comments, totalComments});
                     
                 }
                 catch (Exception ex)

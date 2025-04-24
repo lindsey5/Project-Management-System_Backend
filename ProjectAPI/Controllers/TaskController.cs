@@ -106,6 +106,7 @@ namespace ProjectAPI.Controllers
             var tasks = await _context.Tasks
                 .Where(t => t.Project_Id == project_id)
                 .OrderBy(t => t.Due_date)
+                .Include(t => t.Comments)
                 .Include(t => t.Member)
                     .ThenInclude(m => m.User)
                 .Include(t => t.Assignees)
@@ -216,6 +217,8 @@ namespace ProjectAPI.Controllers
                 var tasks = await _context.Tasks
                     .Where(t => taskIds.Contains(t.Id))
                     .Include(t => t.Project)
+                    .Include(t => t.Member)
+                        .ThenInclude(m => m.User)
                     .ToListAsync();
 
                 return Ok(new { success = true, tasks});
