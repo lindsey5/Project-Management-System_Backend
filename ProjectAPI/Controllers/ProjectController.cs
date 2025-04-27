@@ -119,10 +119,7 @@ namespace ProjectAPI.Controllers
         {
             try{
                 // Validate the incoming model
-                if (project == null)
-                {
-                    return BadRequest(new { message = "Project data is missing." });
-                }
+                if (project == null) return BadRequest(new { message = "Project data is missing." });
 
                 // Get the user ID from the claims
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
