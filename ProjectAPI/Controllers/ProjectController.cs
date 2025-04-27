@@ -4,7 +4,6 @@ using System.Security.Claims;
 using ProjectAPI.Models;
 using ProjectAPI.Services;
 using Microsoft.EntityFrameworkCore;
-using Task = ProjectAPI.Models.Task;
 
 namespace ProjectAPI.Controllers
 {
@@ -72,6 +71,46 @@ namespace ProjectAPI.Controllers
                 success = true, 
                 projects = memberProjects
             });
+        }
+
+        [Authorize]
+        [HttpPut()]
+        public async Task<IActionResult> UpdateProject([FromBody] Project updatedProject)
+        {
+            try{
+                if (updatedProject == null) return BadRequest(new { message = "Project data is missing." });
+                // Get the user ID from the claims
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+                if (idClaim == null || !int.TryParse(idClaim.Value, out int userId)) 
+                    return Unauthorized(new { message = "ID not found in token." });
+
+                var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == updatedProject.Id);
+                
+                if(project == null) return NotFound(new { success = true, message = "Project not found."} );
+
+                var isAdmin = await _context.Members.AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId && m.Role == "Admin");
+
+                if(!isAdmin) return Unauthorized(new { success = false, message = "Only admin is authorized"});
+
+                project.Title = updatedProject.Title;
+                project.Description = updatedProject.Description;
+                project.Type = updatedProject.Type;
+                project.Start_date = updatedProject.Start_date;
+                project.End_date = updatedProject.End_date;
+                project.Status = updatedProject.Status;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, updatedProject});
+
+            }catch(Exception ex){
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "An error occurred while processing your request",
+                    error = ex.Message 
+                });
+            }
         }
 
         [Authorize]
