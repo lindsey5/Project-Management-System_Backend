@@ -17,3 +17,4 @@ public class Task : BaseTask
     public ICollection<Assignee> Assignees { get; set; } = new List<Assignee>();
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
 }
+

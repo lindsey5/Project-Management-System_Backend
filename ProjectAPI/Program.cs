@@ -20,6 +20,12 @@ builder.Services.AddControllers().AddJsonOptions(x =>
     x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
 
+builder.Services.AddLogging(options =>
+{
+    options.AddConsole();  // Log to console
+    options.AddDebug();    // Log to debug output
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowMyOrigin", policy =>
@@ -42,9 +48,11 @@ builder.Services.AddHttpClient();
 // Register AuthService with the secret key from config
 builder.Services.AddSingleton(new AuthService(jwtSecret));
 // Register 
+builder.Services.AddScoped<NotificationHub>();
 builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<AssigneeService>();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<UserConnectionService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

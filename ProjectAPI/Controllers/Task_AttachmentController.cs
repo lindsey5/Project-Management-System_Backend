@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectAPI.Models;
 using ProjectAPI.Models.Task_Attachment;
+using ProjectAPI.Services;
 
 namespace ProjectAPI.Controllers
 {
@@ -12,9 +14,17 @@ namespace ProjectAPI.Controllers
     public class Task_AttachmentController : ControllerBase
     {
         private readonly ApplicationDBContext _context;
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly UserConnectionService _userConnectionService;
 
-        public Task_AttachmentController(ApplicationDBContext context){
+        public Task_AttachmentController(
+            ApplicationDBContext context,
+            IHubContext<NotificationHub> hubContext,
+            UserConnectionService userConnectionService
+        ){
             _context = context;
+            _hubContext = hubContext;
+            _userConnectionService = userConnectionService;
         }
 
         [Authorize]
@@ -31,7 +41,12 @@ namespace ProjectAPI.Controllers
 
                 if(user == null) return NotFound(new { success = false, message = "User not found."}); 
 
-                var task = await _context.Tasks.FindAsync(task_Attachment.Task_Id);
+                var task = await _context.Tasks
+                    .Include(t => t.Project)
+                    .Include(t => t.Assignees)
+                        .ThenInclude(a => a.Member)
+                            .ThenInclude(m => m.User)
+                    .FirstOrDefaultAsync(t => t.Id == task_Attachment.Task_Id);
 
                 if(task == null) return NotFound(new { success = false, message = "Task not found"});
 
@@ -60,8 +75,32 @@ namespace ProjectAPI.Controllers
                     Action_Description = $"{user.Firstname} added an attachment",
                     New_Value  = attachment.Name,
                     Task_Id = task_Attachment.Task_Id,
+                    Project_Id = task.Project_Id,
                     Date_Time = DateTime.Now,
                 });
+
+                foreach(var assignee in task.Assignees){
+                        if(assignee.Member == null || task.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
+
+                        var newNotification = new Notification
+                        {
+                            Message = $"{user.Firstname} {user.Lastname} added an attachment in task \"{task.Task_Name}\" in project \"{task.Project.Title}\"",
+                            User_id = assignee.Member.User.Id,
+                            Task_id = task.Id,
+                            Project_id = task.Project_Id,
+                            Type = "AttachmentAdded",
+                            Created_by = userId,
+                            IsRead = false,
+                            Date_time = DateTime.Now,
+                            User = user
+                        };
+
+                        _context.Notifications.Add(newNotification);
+
+                        if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
+                            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                        }
+                    }
 
                 await _context.SaveChangesAsync();
 
@@ -109,10 +148,10 @@ namespace ProjectAPI.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex);
                 return StatusCode(500, new { 
                     success = false, 
-                    message = "An internal error occurred",
-                    ex
+                    message = $"An internal error occurred: {ex.Message}",
                 });
             }
         }
@@ -134,7 +173,12 @@ namespace ProjectAPI.Controllers
 
                 if(attachment == null) return NotFound(new { success = false, message = "Attachment doesn't exist"});
 
-                var task = await _context.Tasks.FindAsync(attachment.Task_Id);
+                var task = await _context.Tasks
+                    .Include(t => t.Project)
+                    .Include(t => t.Assignees)
+                        .ThenInclude(a => a.Member)
+                            .ThenInclude(m => m.User)
+                    .FirstOrDefaultAsync(t => t.Id == attachment.Task_Id);
 
                 if(task == null) return NotFound(new { success = false, message = "This attachment has no linked task."});
 
@@ -144,7 +188,6 @@ namespace ProjectAPI.Controllers
                 if(!isAdmin) return Unauthorized(new { success = false, message = "Access is restricted to administrators only.."});
 
                 _context.Task_Attachments.Remove(attachment);
-                await _context.SaveChangesAsync();
 
                 _context.Task_Histories.Add(new Task_History{
                     Action_Description = $"{user.Firstname} added an attachment",
@@ -152,17 +195,42 @@ namespace ProjectAPI.Controllers
                     New_Value  = "Deleted",
                     Task_Id = task.Id,
                     Date_Time = DateTime.Now,
+                    Project_Id = task.Project_Id,
                 });
 
+                foreach(var assignee in task.Assignees){
+                    if(assignee.Member == null || task.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
+
+                    var newNotification = new Notification
+                    {
+                        Message = $"{user.Firstname} {user.Lastname} added an attachment in task \"{task.Task_Name}\" in project \"{task.Project.Title}\"",
+                        User_id = assignee.Member.User.Id,
+                        Task_id = task.Id,
+                        Project_id = task.Project_Id,
+                        Type = "AttachmentRemoved",
+                        Created_by = userId,
+                        IsRead = false,
+                        Date_time = DateTime.Now,
+                        User = user
+                    };
+
+                    _context.Notifications.Add(newNotification);
+
+                    if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
+                        await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                    }
+                }
+
+                await _context.SaveChangesAsync();
                 return Ok(new { success = true, message = "Attachment is successfully deleted."});
 
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex);
                 return StatusCode(500, new { 
                     success = false, 
                     message = "An internal error occurred",
-                    ex
                 });
             }
         }

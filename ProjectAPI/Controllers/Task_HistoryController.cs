@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,7 +19,7 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> GetTaskHistory(int task_id, [FromQuery] int page = 1){
             try
             {
-                int limit = 5;
+                int limit = 20;
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
                 if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
                     return Unauthorized(new { success = false, message = "Invalid user token" });
@@ -43,6 +42,44 @@ namespace ProjectAPI.Controllers
                         .Take(limit)
                         .ToListAsync();
                 
+                return Ok(new { success = true, history});
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An internal error occurred. Please try again later.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpGet("project/{project_id}")]
+        public async Task<IActionResult> GetProjectTaskHistory(int project_id, [FromQuery] int page = 1){
+            try
+            {
+                int limit = 20;
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
+                    return Unauthorized(new { success = false, message = "Invalid user token" });
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                    return NotFound(new { success = false, message = "User not found" });
+
+                var isMember = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == project_id);
+
+                if(!isMember) return Unauthorized(new { success = false, message = "Only member is authorized"});
+                
+                var history = await _context.Task_Histories
+                    .Where(h => h.Project_Id == project_id)
+                    .OrderByDescending(h => h.Date_Time)
+                    .Skip((page -1) * limit)
+                    .Take(limit)
+                    .ToListAsync();
+
                 return Ok(new { success = true, history});
             }
             catch (Exception ex)

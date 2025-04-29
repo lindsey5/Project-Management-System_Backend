@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
 using ProjectAPI.Models;
@@ -15,10 +17,20 @@ namespace ProjectAPI.Controllers
     {
         private readonly ApplicationDBContext _context;
         private readonly AssigneeService _assigneeService;
-        public TaskController(ApplicationDBContext context, AssigneeService assigneeService)
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly UserConnectionService _userConnectionService;
+        
+        public TaskController(
+            ApplicationDBContext context, 
+            AssigneeService assigneeService,
+            IHubContext<NotificationHub> hubContext,
+            UserConnectionService userConnectionService
+        )
         {
             _context = context;
             _assigneeService = assigneeService;
+            _hubContext = hubContext;
+            _userConnectionService = userConnectionService;
         }
 
         [Authorize]
@@ -26,7 +38,12 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> UpdateTask([FromBody] Task UpdatedTask, int id)
         {
             try{
-                var task = await _context.Tasks.FindAsync(id);
+                var task = await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.Assignees)
+                    .ThenInclude(a => a.Member)
+                        .ThenInclude(m => m.User)
+                .FirstOrDefaultAsync(t => t.Id == id);
 
                 if (task == null) return NotFound(new { success = false, message = "Task not found"});
                 
@@ -53,7 +70,8 @@ namespace ProjectAPI.Controllers
                         Prev_Value = prev,
                         New_Value = next,
                         Date_Time = DateTime.Now,
-                        Task_Id = task.Id
+                        Task_Id = task.Id,
+                        Project_Id = task.Project_Id,
                     });
                 }
 
@@ -79,6 +97,38 @@ namespace ProjectAPI.Controllers
                 task.Priority = UpdatedTask.Priority;
                 task.Due_date = UpdatedTask.Due_date;
                 task.Updated_At = DateTime.Now;
+
+                if(changes.Count > 0){
+                    foreach(var assignee in task.Assignees){
+                        if(assignee.Member == null || task.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
+                        var builder = new StringBuilder();
+                        builder.AppendLine($"Task \"{task.Task_Name}\" in project \"{task.Project.Title}\" has been updated:");
+
+                        foreach(var change in changes){
+                            builder.AppendLine($"{change.Action_Description} from \"{change.Prev_Value}\" to \"{change.New_Value}\"");
+                        }
+                        string message = builder.ToString();
+                        var newNotification = new Notification
+                        {
+                            Message = message,
+                            User_id = assignee.Member.User.Id,
+                            Task_id = task.Id,
+                            Project_id = task.Project_Id,
+                            Type = "TaskUpdated",
+                            Created_by = userId,
+                            IsRead = false,
+                            Date_time = DateTime.Now,
+                            User = user
+                        };
+
+                        _context.Notifications.Add(newNotification);
+                        Console.WriteLine(_userConnectionService.GetConnections());
+
+                        if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
+                            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                        }
+                    }
+                }
 
                 await _context.SaveChangesAsync();
 
