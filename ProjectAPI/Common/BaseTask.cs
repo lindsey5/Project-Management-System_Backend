@@ -8,5 +8,6 @@ public abstract class BaseTask
     public string Description { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public DateTime Start_date { get; set; } 
     public DateTime Due_date { get; set; }
 }

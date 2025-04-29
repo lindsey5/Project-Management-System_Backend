@@ -93,6 +93,9 @@ namespace ProjectAPI.Controllers
                 if (task.Priority != UpdatedTask.Priority)
                     AddHistory("changed the priority", task.Priority, UpdatedTask.Priority);
 
+                if (task.Start_date != UpdatedTask.Start_date)
+                    AddHistory("changed the start date", task.Start_date.ToString(), UpdatedTask.Start_date.ToString());
+
                 if (task.Due_date != UpdatedTask.Due_date)
                     AddHistory("changed the due date", task.Due_date.ToString(), UpdatedTask.Due_date.ToString());
 
@@ -101,6 +104,7 @@ namespace ProjectAPI.Controllers
                 task.Task_Name = UpdatedTask.Task_Name;
                 task.Description = UpdatedTask.Description;
                 task.Priority = UpdatedTask.Priority;
+                task.Start_date = UpdatedTask.Start_date;
                 task.Due_date = UpdatedTask.Due_date;
                 task.Updated_At = DateTime.Now;
 
@@ -169,7 +173,7 @@ namespace ProjectAPI.Controllers
 
             var tasks = await _context.Tasks
                 .Where(t => t.Project_Id == project_id && t.Status != "Deleted")
-                .OrderBy(t => t.Due_date)
+                .OrderBy(t => t.Start_date)
                 .Include(t => t.Comments)
                 .Include(t => t.Member)
                     .ThenInclude(m => m.User)
@@ -231,6 +235,7 @@ namespace ProjectAPI.Controllers
                 var task = new Task{
                     Task_Name = taskCreateDto.Task_Name,
                     Description = taskCreateDto.Description,
+                    Start_date = taskCreateDto.Start_date,
                     Due_date = taskCreateDto.Due_date,
                     Priority = taskCreateDto.Priority,
                     Status = taskCreateDto.Status ?? "To Do",
