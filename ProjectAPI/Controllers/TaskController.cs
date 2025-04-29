@@ -47,6 +47,8 @@ namespace ProjectAPI.Controllers
 
                 if (task == null) return NotFound(new { success = false, message = "Task not found"});
                 
+                if(task.Status == "Deleted") return BadRequest(new { success = false, message = "Can't update, task is already deleted"});
+
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
                 if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
@@ -104,21 +106,25 @@ namespace ProjectAPI.Controllers
 
                 if(changes.Count > 0){
                     foreach(var assignee in task.Assignees){
-                        if(assignee.Member == null || task.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
+                        if(assignee.Member == null || task?.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
+                        
                         var builder = new StringBuilder();
-                        builder.AppendLine($"Task \"{task.Task_Name}\" in project \"{task.Project.Title}\" has been updated:");
+                        builder.AppendLine($"Task \"{task.Task_Name}\" in project \"{task?.Project.Title}\" has been {(UpdatedTask.Status != "Deleted" ? "updated" : "deleted")}");
 
-                        foreach(var change in changes){
+                        if(UpdatedTask.Status != "Deleted"){
+                            foreach(var change in changes){
                             builder.AppendLine($"{change.Action_Description} from \"{change.Prev_Value}\" to \"{change.New_Value}\"");
                         }
+                        }
+
                         string message = builder.ToString();
                         var newNotification = new Notification
                         {
                             Message = message,
                             User_id = assignee.Member.User.Id,
-                            Task_id = task.Id,
-                            Project_id = task.Project_Id,
-                            Type = "TaskUpdated",
+                            Task_id = task?.Id,
+                            Project_id = task?.Project_Id,
+                            Type = UpdatedTask.Status != "Deleted" ? "TaskUpdated" : "TaskDeleted",
                             Created_by = userId,
                             IsRead = false,
                             Date_time = DateTime.Now,
@@ -162,7 +168,7 @@ namespace ProjectAPI.Controllers
             if(isAuthorize == null) return Unauthorized(new { success = false, message = "Access is restricted to members only." });
 
             var tasks = await _context.Tasks
-                .Where(t => t.Project_Id == project_id)
+                .Where(t => t.Project_Id == project_id && t.Status != "Deleted")
                 .OrderBy(t => t.Due_date)
                 .Include(t => t.Comments)
                 .Include(t => t.Member)
@@ -209,6 +215,10 @@ namespace ProjectAPI.Controllers
             var user = await _context.Users.FindAsync(userId);
 
             if(user == null) return NotFound(new { success = false, message = "User not found."}); 
+
+            var project = await _context.Projects.FindAsync(taskCreateDto.Project_Id);
+
+            if(project == null) return NotFound( new { success = false, message = "Project not found"});
             
             var member = await _context.Members.FirstOrDefaultAsync(m => 
                 m.Project_Id == taskCreateDto.Project_Id && m
@@ -231,10 +241,55 @@ namespace ProjectAPI.Controllers
                 };
 
                 _context.Tasks.Add(task);
-
                 await _context.SaveChangesAsync();
 
                 var Assignees = await _assigneeService.CreateAssignees(_context, taskCreateDto.AssigneesMemberId, task.Id, taskCreateDto.Project_Id);
+                await _context.SaveChangesAsync();
+
+                foreach (var assignee in Assignees)
+                {
+                    ;
+                    var newAssignee = await _context.Members
+                        .Include(m => m.User)
+                        .FirstOrDefaultAsync(m => m.Id == assignee.Member_Id);
+
+                    if (newAssignee?.User == null)
+                        continue;
+                    _context.Task_Histories.Add(new Task_History
+                    {
+                        Task_Id = assignee.Task_Id,
+                        Project_Id = task.Project_Id,
+                        New_Value = $"{newAssignee.User.Firstname} {newAssignee.User.Lastname}",
+                        Action_Description = $"{user.Firstname} added an assignee",
+                        Date_Time = DateTime.Now
+                    });
+
+                    // Notify only if the assignee is not the one making the assignment
+                    if (newAssignee.User.Id != userId)
+                    {
+                        var notification = new Notification
+                        {
+                            Message = $"You have been assigned to the task \"{task.Task_Name}\" in project \"{project.Title}\"",
+                            User_id = newAssignee.User.Id,
+                            Task_id = task.Id,
+                            Project_id = task.Project_Id,
+                            Type = "TaskAssigned",
+                            Created_by = userId,
+                            IsRead = false,
+                            Date_time = DateTime.Now,
+                            User = user // assumes user is already tracked or from context
+                        };
+
+                        _context.Notifications.Add(notification);
+
+                        if (_userConnectionService.GetConnections().TryGetValue(newAssignee.User.Email, out var connectionId))
+                        {
+                            await _hubContext.Clients.Client(connectionId)
+                                .SendAsync("ReceiveTaskNotification", 1, notification);
+                        }
+                    }
+                }
+
 
                 await _context.SaveChangesAsync();
                 return Ok(new {success = "true", task});
@@ -279,7 +334,7 @@ namespace ProjectAPI.Controllers
                     .ToListAsync();
                 
                 var tasks = await _context.Tasks
-                    .Where(t => taskIds.Contains(t.Id))
+                    .Where(t => taskIds.Contains(t.Id) && t.Status != "Deleted")
                     .Include(t => t.Project)
                     .Include(t => t.Member)
                         .ThenInclude(m => m.User)
