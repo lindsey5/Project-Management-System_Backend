@@ -82,7 +82,7 @@ namespace ProjectAPI.Controllers
                 }
 
                 if (task.Status != UpdatedTask.Status)
-                    AddHistory("changed the status", task.Status, UpdatedTask.Status);
+                    AddHistory(UpdatedTask.Status != "Deleted" ? "changed the status" : "deleted a task", task.Status, UpdatedTask.Status);
 
                 if (task.Task_Name != UpdatedTask.Task_Name)
                     AddHistory("changed the task name", task.Task_Name, UpdatedTask.Task_Name);
