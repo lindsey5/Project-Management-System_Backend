@@ -51,7 +51,7 @@ namespace ProjectAPI.Controllers
                 if(task == null) return NotFound(new { success = false, message = "Task not found"});
 
                 var isAuthorize = await _context.Members.AnyAsync(m => m.Project_Id == task.Project_Id 
-                    && m.User_Id == userId && m.Role == "Admin"); 
+                    && m.User_Id == userId && m.Role == "Admin" && m.Status == "Active"); 
 
                 if(!isAuthorize) return Unauthorized(new { success = false, message = "Access is restricted to administrators only."});
 
@@ -135,7 +135,11 @@ namespace ProjectAPI.Controllers
 
                 if(task == null) return NotFound(new { success = false, message = "Task not found"});
 
-                var member = await _context.Members.AnyAsync(m => m.Project_Id == task.Project_Id && m.User_Id == userId);
+                var member = await _context.Members.AnyAsync(m => 
+                    m.Project_Id == task.Project_Id && 
+                    m.User_Id == userId && 
+                    m.Status == "Active"
+                );
 
                 if(!member) return Unauthorized(new { success= false, message = "Access is restricted to members only."});
 
@@ -183,7 +187,11 @@ namespace ProjectAPI.Controllers
                 if(task == null) return NotFound(new { success = false, message = "This attachment has no linked task."});
 
                 var isAdmin = await _context.Members
-                    .AnyAsync(m => m.Project_Id == task.Project_Id && m.User_Id == userId && m.Role == "Admin");
+                    .AnyAsync(m => m.Project_Id == task.Project_Id && 
+                    m.User_Id == userId && 
+                    m.Role == "Admin" &&
+                    m.Status == "Active"
+                );
 
                 if(!isAdmin) return Unauthorized(new { success = false, message = "Access is restricted to administrators only.."});
 

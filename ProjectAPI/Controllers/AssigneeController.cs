@@ -47,7 +47,7 @@ namespace ProjectAPI.Controllers
 
                 if(task == null) return NotFound(new { success = false, message = "Task does not exist"});
                 
-                var isAdmin = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == task.Project_Id);
+                var isAdmin = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == task.Project_Id && m.Status == "Active");
 
                 if(!isAdmin) return Unauthorized(new { success = false, message = "Unauthorized: Access is restricted to administrators only. " });
                 

@@ -32,7 +32,11 @@ namespace ProjectAPI.Controllers
 
                 if(task == null) return NotFound(new { success = false, message = "Task doesn't exist"});
                 
-                if(!await _context.Members.AnyAsync(m => m.Project_Id == task.Project_Id && m.User_Id == user.Id))
+                if(!await _context.Members.AnyAsync(m => 
+                    m.Project_Id == task.Project_Id && 
+                    m.User_Id == user.Id && 
+                    m.Status == "Active"
+                ))
                     return Unauthorized(new { success = false, message = "Unauthorized. Only member can access."});
 
                 var history = await _context.Task_Histories
@@ -60,7 +64,7 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> GetProjectTaskHistory(int project_id, [FromQuery] int page = 1){
             try
             {
-                int limit = 20;
+                int limit = 10;
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
                 if (idClaim == null || !int.TryParse(idClaim.Value, out var userId))
                     return Unauthorized(new { success = false, message = "Invalid user token" });
@@ -69,11 +73,16 @@ namespace ProjectAPI.Controllers
                 if (user == null)
                     return NotFound(new { success = false, message = "User not found" });
 
-                var isMember = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == project_id);
+                var isMember = await _context.Members.AnyAsync(m => 
+                    m.User_Id == userId && 
+                    m.Project_Id == project_id && 
+                    m.Status == "Active"
+                );
 
                 if(!isMember) return Unauthorized(new { success = false, message = "Only member is authorized"});
                 
                 var history = await _context.Task_Histories
+                    .Include(h => h.Task)
                     .Where(h => h.Project_Id == project_id)
                     .OrderByDescending(h => h.Date_Time)
                     .Skip((page -1) * limit)

@@ -46,7 +46,11 @@ namespace ProjectAPI.Controllers
 
             // Check if user is either the project owner or a member
             var isOwner = project.User_id == userId;
-            var isMember = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == project.Id);
+            var isMember = await _context.Members.AnyAsync(m => 
+                m.User_Id == userId && 
+                m.Project_Id == project.Id &&
+                m.Status == "Active"
+            );
 
             if (!isOwner && !isMember)
                 return Unauthorized(new { success = false, message = "You must be a member or admin." });
@@ -97,10 +101,15 @@ namespace ProjectAPI.Controllers
                 if (member == null) return NotFound(new { message = "Member not found." });
 
                 var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project_Id);
+                
+                if(project == null) return NotFound(new { success = false, message = "Project not found"});
 
-                if(project == null) return Unauthorized(new { success = false, message = "Deletion is restricted to admin or member only."});
+                var isAdmin = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == project.Id && m.Status == "Active" && m.Role == "Admin");
+
+                if(!isAdmin) return Unauthorized(new { success = false, message = "Deletion is restricted to admin or member only."});
 
                 member.Status = "Inactive";
+                member.Role = "Member";
 
                 var assignees = await _context.Assignees
                     .Where(a => a.Member_Id == member.Id)
@@ -159,7 +168,12 @@ namespace ProjectAPI.Controllers
 
                 if(project == null) return NotFound(new { success = false, message = "Project doesn't exist"});
                 
-                var isAdmin = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Role == "Admin" && m.Project_Id == project.Id);
+                var isAdmin = await _context.Members.AnyAsync(m => 
+                    m.User_Id == userId && 
+                    m.Role == "Admin" && 
+                    m.Project_Id == project.Id &&
+                    m.Status == "Active"
+                );
 
                 if(!isAdmin) return Unauthorized(new { success = false, message = "Member creation failed: Admin-only action"});
                 

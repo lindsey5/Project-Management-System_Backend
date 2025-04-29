@@ -84,7 +84,7 @@ namespace ProjectAPI.Controllers
 
                 bool isAdmin = await _context.Members
                     .AnyAsync(m => m.Project_Id == project.Id 
-                        && m.User_Id == user.Id && m.Role == "Admin");
+                        && m.User_Id == user.Id && m.Role == "Admin" && m.Status == "Active");
                 
                 if(!isAdmin) return Unauthorized(new { success = false, message = "Only admin is authorized"});
 

@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectAPI.DTOs;
 using ProjectAPI.Models;
+using ProjectAPI.Services;
 
 namespace ProjectAPI.Controllers
 {
@@ -12,10 +14,15 @@ namespace ProjectAPI.Controllers
     public class CommentController : ControllerBase
     {
         private readonly ApplicationDBContext _context;
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly UserConnectionService _userConnectionService;
 
-        public CommentController(ApplicationDBContext context)
+        public CommentController(ApplicationDBContext context, IHubContext<NotificationHub> hubContext,
+            UserConnectionService userConnectionService)
         {
             _context = context;
+            _hubContext = hubContext;
+            _userConnectionService = userConnectionService;
         }
 
         [Authorize]
@@ -31,12 +38,17 @@ namespace ProjectAPI.Controllers
                     if (user == null)
                         return NotFound(new { success = false, message = "User not found" });
                     
-                    var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == newComment.Task_Id);
+                    var task = await _context.Tasks
+                    .Include(t => t.Assignees)
+                        .ThenInclude(a => a.Member)
+                        .ThenInclude(m => m.User)
+                    .Include(t => t.Project)
+                    .FirstOrDefaultAsync(t => t.Id == newComment.Task_Id);
 
                     if(task == null) return NotFound(new { success = false, message = "Task not found"});
                     
                     var member = await _context.Members.FirstOrDefaultAsync(m => 
-                        m.User_Id == userId && m.Project_Id == task.Project_Id
+                        m.User_Id == userId && m.Project_Id == task.Project_Id && m.Status == "Active"
                     );
 
                     if(member == null) return Unauthorized(new { success = false, message = "Unauthorized you must be a member of the project"});
@@ -47,6 +59,37 @@ namespace ProjectAPI.Controllers
                         Content = newComment.Content,
                         Date_time = DateTime.Now,
                     };
+
+                    _context.Task_Histories.Add(new Task_History
+                    {
+                        Task_Id = comment.Task_Id,
+                        Project_Id = task.Project_Id,
+                        Action_Description = $"{user.Firstname} added a comment",
+                        Date_Time = DateTime.Now
+                    });
+
+                    foreach(var assignee in task.Assignees){
+                        if(assignee.Member == null || assignee.Member.User == null || task.Project == null || assignee.Member.User.Id == userId) continue;
+                        
+                        var newNotification = new Notification
+                        {
+                            Message = $"{assignee.Member.User.Firstname} {assignee.Member.User.Lastname} added a comment to task \"{task.Task_Name}\" in project \"{task.Project.Title}\"",
+                            User_id = assignee.Member.User.Id,
+                            Task_id = task.Id,
+                            Project_id = task.Project_Id,
+                            Type = "CommentAdded",
+                            Created_by = userId,
+                            IsRead = false,
+                            Date_time = DateTime.Now,
+                            User = user
+                        };
+                        
+                        _context.Notifications.Add(newNotification);
+
+                        if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
+                            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                        }
+                    }
 
                     _context.Comments.Add(comment);
                     await _context.SaveChangesAsync();
@@ -85,7 +128,7 @@ namespace ProjectAPI.Controllers
                     if(task == null) return NotFound(new { success = false, message = "Task not found"});
                     
                     var member = await _context.Members.FirstOrDefaultAsync(m => 
-                        m.User_Id == userId && m.Project_Id == task.Project_Id
+                        m.User_Id == userId && m.Project_Id == task.Project_Id && m.Status == "Active"
                     );
 
                     if(member == null) return Unauthorized(new { success = false, message = "Unauthorized you must be a member of the project"});
@@ -134,12 +177,12 @@ namespace ProjectAPI.Controllers
 
                     if(comment == null) return NotFound(new { success = false, message = "Comment not found"});
                     
-                    var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == comment.Task_Id);
+                    var task = await _context.Tasks.FindAsync(comment.Task_Id);
 
                     if(task == null) return NotFound(new { success = false, message = "Task not found"});
                     
                     var isAuthorize = await _context.Members.AnyAsync(m => m.Project_Id == task.Project_Id 
-                    && m.User_Id == userId); 
+                    && m.User_Id == userId && m.Status == "Active"); 
 
                     if(!isAuthorize) return Unauthorized(new { success = false, message = "Unauthorized you must be a member of the project"});
 
@@ -188,10 +231,12 @@ namespace ProjectAPI.Controllers
                     if (user == null)
                         return NotFound(new { success = false, message = "User not found" });
                     
-                    var comment = await _context.Comments.FindAsync(comment_id);
+                    var comment = await _context.Comments
+                        .Include(c => c.Task)
+                        .FirstOrDefaultAsync(c => c.Id == comment_id);
 
                     if(comment == null) return NotFound(new { success = false, message = "Comment not found"});
-                    
+                
                     var attachments = await _context.CommentAttachments
                         .Where(a => a.Comment_Id == comment_id)
                         .ToListAsync();

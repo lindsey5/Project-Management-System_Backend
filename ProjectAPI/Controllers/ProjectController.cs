@@ -48,6 +48,32 @@ namespace ProjectAPI.Controllers
         }
 
         [Authorize]
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetProjectById(int id)
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                return Unauthorized(new { success = false, message = "Invalid user token" });
+
+            var user = await _context.Users.FindAsync(userId);
+
+            if(user == null) return Unauthorized(new { success = false, message = "User not found"});
+
+            var isMember = await _context.Members.AnyAsync(m => 
+                m.Project_Id == id && 
+                m.User_Id == userId &&
+                m.Status == "Active"
+            );
+
+            if(!isMember) return Unauthorized(new { success = false, message = "Unauthorized: Access is restricted to project members only."});
+        
+            var project = await _context.Projects.FindAsync(id);
+
+            return Ok(new { success = true , project});
+        }
+
+        [Authorize]
         [HttpGet()]
         public async Task<IActionResult> GetProjects()
         {

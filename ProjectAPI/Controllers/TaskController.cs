@@ -56,7 +56,11 @@ namespace ProjectAPI.Controllers
 
                 if(user == null) return NotFound(new { success = false, message = "User not found."}); 
 
-                var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == task.Project_Id);
+                var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => 
+                    m.User_Id == Convert.ToInt32(idClaim.Value) && 
+                    m.Project_Id == task.Project_Id && 
+                    m.Status == "Active"
+                );
                 
                 if(isAuthorize == null) return Unauthorized(new { success = false, message = "Access is restricted to members only." });
 
@@ -149,7 +153,11 @@ namespace ProjectAPI.Controllers
             if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                 return Unauthorized(new { success = false, message = "Invalid user token" });
 
-            var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == Convert.ToInt32(idClaim.Value) && m.Project_Id == project_id);
+            var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => 
+                m.User_Id == Convert.ToInt32(idClaim.Value) && 
+                m.Project_Id == project_id && 
+                m.Status == "Active"
+            );
             
             if(isAuthorize == null) return Unauthorized(new { success = false, message = "Access is restricted to members only." });
 
@@ -172,7 +180,10 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> GetTaskById(int id)
         {
             // Fetch the project by its ID, including the related user (if needed)
-            var task = await _context.Tasks.FirstOrDefaultAsync(p => p.Id == id);
+            var task = await _context.Tasks
+            .Include(t => t.Member)
+                .ThenInclude(m => m.User)
+            .FirstOrDefaultAsync(t => t.Id == id);
 
             // If the project is not found, return a NotFound response
             if (task == null)
@@ -199,7 +210,10 @@ namespace ProjectAPI.Controllers
 
             if(user == null) return NotFound(new { success = false, message = "User not found."}); 
             
-            var member = await _context.Members.FirstOrDefaultAsync(m => m.Project_Id == taskCreateDto.Project_Id && m.User_Id == userId && m.Role == "Admin");
+            var member = await _context.Members.FirstOrDefaultAsync(m => 
+                m.Project_Id == taskCreateDto.Project_Id && m
+                .User_Id == userId && m.Role == "Admin" && m.Status == "Active"
+            );
 
             if(member == null ) return Unauthorized("Access is restricted to administrators only."); 
 
