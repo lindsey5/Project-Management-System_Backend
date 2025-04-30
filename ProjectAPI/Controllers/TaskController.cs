@@ -81,23 +81,27 @@ namespace ProjectAPI.Controllers
                     });
                 }
 
-                if (task.Status != UpdatedTask.Status)
-                    AddHistory(UpdatedTask.Status != "Deleted" ? "changed the status" : "deleted a task", task.Status, UpdatedTask.Status);
+                if(UpdatedTask.Status != "Deleted"){
+                    if (task.Status != UpdatedTask.Status)
+                        AddHistory("changed the status", task.Status, UpdatedTask.Status);
 
-                if (task.Task_Name != UpdatedTask.Task_Name)
-                    AddHistory("changed the task name", task.Task_Name, UpdatedTask.Task_Name);
+                    if (task.Task_Name != UpdatedTask.Task_Name)
+                        AddHistory("changed the task name", task.Task_Name, UpdatedTask.Task_Name);
 
-                if (task.Description != UpdatedTask.Description)
-                    AddHistory("changed the description", task.Description, UpdatedTask.Description);
+                    if (task.Description != UpdatedTask.Description)
+                        AddHistory("changed the description", task.Description, UpdatedTask.Description);
 
-                if (task.Priority != UpdatedTask.Priority)
-                    AddHistory("changed the priority", task.Priority, UpdatedTask.Priority);
+                    if (task.Priority != UpdatedTask.Priority)
+                        AddHistory("changed the priority", task.Priority, UpdatedTask.Priority);
 
-                if (task.Start_date != UpdatedTask.Start_date)
-                    AddHistory("changed the start date", task.Start_date.ToString(), UpdatedTask.Start_date.ToString());
+                    if (task.Start_date != UpdatedTask.Start_date)
+                        AddHistory("changed the start date", task.Start_date.ToString(), UpdatedTask.Start_date.ToString());
 
-                if (task.Due_date != UpdatedTask.Due_date)
-                    AddHistory("changed the due date", task.Due_date.ToString(), UpdatedTask.Due_date.ToString());
+                    if (task.Due_date != UpdatedTask.Due_date)
+                        AddHistory("changed the due date", task.Due_date.ToString(), UpdatedTask.Due_date.ToString());
+                }else{
+                    AddHistory("deleted a task", task.Status, UpdatedTask.Status);
+                }
 
                 _context.Task_Histories.AddRange(changes);
                 task.Status = UpdatedTask.Status;
@@ -113,7 +117,7 @@ namespace ProjectAPI.Controllers
                         if(assignee.Member == null || task?.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
                         
                         var builder = new StringBuilder();
-                        builder.AppendLine($"Task \"{task.Task_Name}\" in project \"{task?.Project.Title}\" has been {(UpdatedTask.Status != "Deleted" ? "updated" : "deleted")}");
+                        builder.AppendLine($"Task \"{task.Task_Name}\" in project \"{task?.Project.Title}\" has been {(UpdatedTask.Status != "Deleted" ? "updated:" : "deleted")}");
 
                         if(UpdatedTask.Status != "Deleted"){
                             foreach(var change in changes){
@@ -136,7 +140,6 @@ namespace ProjectAPI.Controllers
                         };
 
                         _context.Notifications.Add(newNotification);
-                        Console.WriteLine(_userConnectionService.GetConnections());
 
                         if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);

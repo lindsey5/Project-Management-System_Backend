@@ -110,10 +110,12 @@ namespace ProjectAPI.Controllers
                         Task_Id = assignee.Task_Id,
                         Project_Id = task.Project_Id,
                         Prev_Value = $"{assignee.Member.User.Firstname} {assignee.Member.User.Lastname}",
-                        New_Value = "Deleted",
+                        New_Value = "Removed",
                         Action_Description = $"{user.Firstname} removed an assignee",
                         Date_Time = DateTime.Now,
                     });
+
+                    assigneesToRemove.Add(assignee);
 
                     if(assignee.Member.User.Id != userId){
                         var newNotification = new Notification
@@ -130,8 +132,6 @@ namespace ProjectAPI.Controllers
                         };
 
                         _context.Notifications.Add(newNotification);
-
-                        assigneesToRemove.Add(assignee);
 
                         if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
