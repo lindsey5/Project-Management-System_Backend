@@ -1152,14 +1152,7 @@
       },
       "System.Security.Principal.Windows/5.0.0": {},
       "System.Text.Encodings.Web/8.0.0": {},
-      "System.Text.Json/9.0.3": {
-        "runtime": {
-          "lib/net9.0/System.Text.Json.dll": {
-            "assemblyVersion": "9.0.0.0",
-            "fileVersion": "9.0.325.11113"
-          }
-        }
-      },
+      "System.Text.Json/9.0.3": {},
       "System.Threading.Channels/8.0.0": {},
       "YamlDotNet/16.3.0": {
         "runtime": {
