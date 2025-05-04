@@ -41,19 +41,13 @@ namespace ProjectAPI.Controllers
                 });
         }
 
-        // POST: api/auth/signup
         [HttpPost("signup")]
-        public async Task<ActionResult<User>> SignUp([FromBody] User user)
+        public async Task<ActionResult> SignUp([FromBody] User user)
         {
             if(string.IsNullOrEmpty(user.Firstname)) return BadRequest(new { message= "Firstname is required"});
             if(string.IsNullOrEmpty(user.Lastname)) return BadRequest(new { message= "Lastname is required"});
             if(string.IsNullOrEmpty(user.Email)) return BadRequest(new { message = "Email is required"});
             if(string.IsNullOrEmpty(user.Password)) return BadRequest(new { message = "Password is required"});
-
-            if (!ModelState.IsValid) return BadRequest(ModelState.Values
-                                       .SelectMany(v => v.Errors)
-                                       .Select(e => e.ErrorMessage)
-                                       .ToList());
 
             var isEmailExist = await _context.Users.AnyAsync(u => u.Email == user.Email);
             if (isEmailExist) return BadRequest(new { message = "Email already exists." });
@@ -63,8 +57,9 @@ namespace ProjectAPI.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Return 201 with created user
-            return CreatedAtAction(nameof(SignUp), new { email = user.Email }, user);
+            var token = _authService.GenerateJwtToken(user);
+
+            return Ok(new { success = true, user, token}); 
         }
 
         // POST: api/auth/login

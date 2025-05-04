@@ -31,7 +31,7 @@ namespace ProjectAPI.Controllers
             {
                 if(email == null) return BadRequest(new { success = false, message = "Email is required"});
 
-                var isExist = await _context.Users.AnyAsync();
+                var isExist = await _context.Users.AnyAsync(u => u.Email == email);
 
                 if(isExist) return Conflict(new { success = false, message = "Email is already registered"});
 
