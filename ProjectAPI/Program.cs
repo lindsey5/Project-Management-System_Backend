@@ -14,6 +14,8 @@ if (string.IsNullOrEmpty(jwtSecret))
     throw new InvalidOperationException("JWT Secret is not configured. Please add it to appsettings.json under Jwt:Secret.");
 }
 
+DotNetEnv.Env.Load();
+
 // Add services to the container
 builder.Services.AddControllers().AddJsonOptions(x =>
 {
