@@ -319,10 +319,16 @@ namespace ProjectAPI.Controllers
     
         [Authorize]
         [HttpGet("user")]
-        public async Task<IActionResult> GetUserTasks(){
+        public async Task<IActionResult> GetUserTasks(
+            int page = 1,
+            int limit = 30,
+            string searchTerm = "",
+            string status = "All",
+            string projectStatus = "Active"
+        ){
             try
             {
-                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
                 if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                     return Unauthorized(new { success = false, message = "Invalid user token" });
@@ -343,15 +349,41 @@ namespace ProjectAPI.Controllers
                     .Select(a => a.Task_Id)
                     .Distinct()
                     .ToListAsync();
+
+                var totalTasks = await _context.Tasks
+                    .Include(t => t.Project)
+                    .Where(t => 
+                        taskIds.Contains(t.Id) && t.Status != "Deleted" &&
+                        (projectStatus != "All" ? t.Project.Status == projectStatus : true) &&
+                        (status != "All" ? t.Status == status : true) && 
+                        t.Task_Name.ToLower().Contains((searchTerm ?? "").ToLower()) &&
+                        t.Project.Title.ToLower().Contains((searchTerm ?? "").ToLower())
+                    )
+                    .CountAsync();
                 
                 var tasks = await _context.Tasks
-                    .Where(t => taskIds.Contains(t.Id) && t.Status != "Deleted")
                     .Include(t => t.Project)
                     .Include(t => t.Member)
                         .ThenInclude(m => m.User)
+                    .Where(t => 
+                        taskIds.Contains(t.Id) && t.Status != "Deleted" &&
+                        (projectStatus != "All" && t.Project != null ? t.Project.Status == projectStatus : true) &&
+                        (status != "All" ? t.Status == status : true) && 
+                        t.Task_Name.ToLower().Contains((searchTerm ?? "").ToLower()) &&
+                        t.Project.Title.ToLower().Contains((searchTerm ?? "").ToLower())
+                    )
+                    .Skip((page - 1) * limit)
+                    .Take(limit)
                     .ToListAsync();
 
-                return Ok(new { success = true, tasks});
+                return Ok(new { 
+                    success = true, 
+                    page,
+                    limit,
+                    totalPages = (int)Math.Ceiling((double)totalTasks / limit),
+                    totalTasks,
+                    tasks,
+                });
 
             }
             catch (Exception ex)
