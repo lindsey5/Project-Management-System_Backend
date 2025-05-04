@@ -252,5 +252,63 @@ namespace ProjectAPI.Controllers
             }
         }
 
+        [Authorize]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateMember([FromBody] MemberUpdateDto updatedMember, int id)
+        {
+            if (updatedMember == null) return BadRequest(new { message = "Member data is missing." });
+
+            var member = await _context.Members.Include(m => m.User).FirstOrDefaultAsync(m => m.Id == id);
+
+            if(member == null || member.User == null) return NotFound(new { success = false, message = "Member not found"});
+
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            
+            if(idClaim == null || !int.TryParse(idClaim.Value, out int userId)) return Unauthorized(new { message = "ID not found in token." });
+                
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null) return Unauthorized(new { success = false, message = "Unauthorized: User account does not exist." });
+                
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project_Id);
+
+            if(project == null) return NotFound(new { success = false, message = "Project doesn't exist"});
+                
+            var isAdmin = await _context.Members.AnyAsync(m => 
+                m.User_Id == userId && 
+                m.Role == "Admin" && 
+                m.Project_Id == project.Id &&
+                m.Status == "Active"
+            );
+
+            if(!isAdmin) return Unauthorized(new { success = false, message = "Member creation failed: Admin-only action"});
+            
+            member.Status = updatedMember.Status;
+            member.Role = updatedMember.Role; 
+
+            var newNotification = new Notification
+            {
+                Message = $"Your role in the project \"{project.Title}\" has been updated to {updatedMember.Role} by {member.User.Firstname} {member.User.Lastname}.",
+                User_id = member.User.Id,
+                Task_id = null,
+                Project_id = project.Id,
+                Type = "RoleUpdated",
+                Created_by = userId,
+                IsRead = false,
+                Date_time = DateTime.Now,
+                User = user
+            };
+                        
+            _context.Notifications.Add(newNotification);
+
+            if(_userConnectionService.GetConnections().TryGetValue(member.User.Email, out var connectionId)){
+                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, member, updatedMember}); 
+        }
+
     }
 }

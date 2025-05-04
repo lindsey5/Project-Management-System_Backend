@@ -58,14 +58,14 @@ namespace ProjectAPI.Controllers
 
                 if(user == null) return NotFound(new { success = false, message = "User not found."}); 
 
-                var isAuthorize = await _context.Members.FirstOrDefaultAsync(m => 
-                    m.User_Id == Convert.ToInt32(idClaim.Value) && 
-                    m.Project_Id == task.Project_Id && 
-                    m.Status == "Active"
-                );
-                
-                if(isAuthorize == null) return Unauthorized(new { success = false, message = "Access is restricted to members only." });
+                var member = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == userId && m.Project_Id == task.Project_Id); 
 
+                if(member == null) return Unauthorized(new { success = false, message = "User is not part of the project." });
+
+                var isAssignee = await _context.Assignees.AnyAsync(a => a.Task_Id == id && a.Member_Id == member.Id);
+                
+                if(member.Role != "Admin" && !isAssignee) return Unauthorized( new { success = false, message = "Access is only for admins and assignees" });
+                
                 var changes = new List<Task_History>();
 
                 void AddHistory(string description, string prev, string next)
@@ -194,6 +194,9 @@ namespace ProjectAPI.Controllers
         {
             // Fetch the project by its ID, including the related user (if needed)
             var task = await _context.Tasks
+            .Include(t => t.Assignees)
+                .ThenInclude(a => a.Member)
+                    .ThenInclude(a => a.User)
             .Include(t => t.Member)
                 .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(t => t.Id == id);
@@ -232,7 +235,7 @@ namespace ProjectAPI.Controllers
                 .User_Id == userId && m.Role == "Admin" && m.Status == "Active"
             );
 
-            if(member == null ) return Unauthorized("Access is restricted to administrators only."); 
+            if(member == null ) return Unauthorized("Access is restricted to administrators only.");
 
             try {
                 var task = new Task{
