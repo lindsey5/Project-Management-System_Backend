@@ -397,5 +397,61 @@ namespace ProjectAPI.Controllers
             }
         }
 
+        [Authorize]
+        [HttpGet("user/all")]
+        public async Task<IActionResult> GetAllUserTasks(){
+            try
+            {
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+                if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                    return Unauthorized(new { success = false, message = "Invalid user token" });
+
+                var user = await _context.Users.FindAsync(userId);
+
+                if (user == null)
+                    return NotFound(new { success = false, message = "User not found" });
+                
+                var memberIds = await _context.Members
+                    .Where(m => m.User_Id == userId)
+                    .Select(m => m.Id )
+                    .Distinct()
+                    .ToListAsync();
+                
+                var taskIds = await _context.Assignees
+                    .Where(a => memberIds.Contains(a.Member_Id))
+                    .Select(a => a.Task_Id)
+                    .Distinct()
+                    .ToListAsync();
+
+                var totalTasks = await _context.Tasks
+                    .Include(t => t.Project)
+                    .Where(t => 
+                        taskIds.Contains(t.Id) && t.Status != "Deleted" 
+                    )
+                    .CountAsync();
+                
+                var tasks = await _context.Tasks
+                    .Include(t => t.Project)
+                    .Include(t => t.Member)
+                        .ThenInclude(m => m.User)
+                    .Where(t => 
+                        taskIds.Contains(t.Id) && t.Status != "Deleted")
+                    .ToListAsync();
+
+                return Ok(new { success = true, tasks,});
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An internal error occurred. Please try again later.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 }
