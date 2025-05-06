@@ -162,7 +162,7 @@ namespace ProjectAPI.Controllers
                 {
                     changes.Add(new Task_History
                     {
-                        Action_Description = $"{user.Firstname} {description} to {next}",
+                        Action_Description = $"{user.Firstname} {user.Lastname} {description} to {next}",
                         Prev_Value = prev,
                         New_Value = next,
                         Date_Time = DateTime.Now,
