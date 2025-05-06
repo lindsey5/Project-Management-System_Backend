@@ -305,7 +305,7 @@ namespace ProjectAPI.Controllers
                 .User_Id == userId && ( m.Role == "Admin" || m.Role == "Editor") && m.Status == "Active" 
             );
 
-            if(member == null ) return Unauthorized("Access is restricted to administrators and editors only.");
+            if(member == null ) return Unauthorized(new { success = false, message = "Access is restricted to administrators and editors only."});
 
             try {
                 var task = new Task{

@@ -51,9 +51,9 @@ namespace ProjectAPI.Controllers
                 if(task == null) return NotFound(new { success = false, message = "Task not found"});
 
                 var isAuthorize = await _context.Members.AnyAsync(m => m.Project_Id == task.Project_Id 
-                    && m.User_Id == userId && m.Role == "Admin" && m.Status == "Active"); 
+                    && m.User_Id == userId && (m.Role == "Admin" || m.Role == "Editor") && m.Status == "Active"); 
 
-                if(!isAuthorize) return Unauthorized(new { success = false, message = "Access is restricted to administrators only."});
+                if(!isAuthorize) return Unauthorized(new { success = false, message = "Access is restricted to administrators and editors only."});
 
                 if (task_Attachment.File == null || task_Attachment.File.Length == 0)
                     return BadRequest("No file uploaded.");
