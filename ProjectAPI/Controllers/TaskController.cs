@@ -64,7 +64,7 @@ namespace ProjectAPI.Controllers
 
                 var isAssignee = await _context.Assignees.AnyAsync(a => a.Task_Id == id && a.Member_Id == member.Id);
                 
-                if((member.Role != "Admin" || member.Role != "Editor") && !isAssignee) return Unauthorized( new { success = false, message = "Access is only for admins and assignees" });
+                if(member.Role != "Admin" && member.Role != "Editor" && !isAssignee) return Unauthorized( new { success = false, message = "Access is only for admins, editors and assignees" });
                 
                 var changes = new List<Task_History>();
 
@@ -181,9 +181,7 @@ namespace ProjectAPI.Controllers
 
                 if(member == null) return Unauthorized(new { success = false, message = "User is not part of the project." });
 
-                var isAssignee = await _context.Assignees.AnyAsync(a => a.Task_Id == id && a.Member_Id == member.Id);
-                
-                if((member.Role != "Admin" || member.Role != "Editor") && !isAssignee) return Unauthorized( new { success = false, message = "Access is only for admins and assignees" });
+                if(member.Role != "Admin" && member.Role != "Editor") return Unauthorized( new { success = false, message = "Access is only for admins and editors" });
                 
                 _context.Task_Histories.Add(new Task_History
                 {
