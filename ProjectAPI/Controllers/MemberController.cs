@@ -132,6 +132,16 @@ namespace ProjectAPI.Controllers
                                 
                     _context.Notifications.Add(newNotification);
 
+                    _context.Task_Histories.Add(new Task_History
+                        {
+                            Task_Id = null,
+                            Project_Id = project.Id,
+                            Prev_Value = null,
+                            New_Value = null,
+                            Action_Description = $"{user.Firstname} {user.Lastname} removed {member.User.Firstname} {member.User.Lastname}.",
+                            Date_Time = DateTime.Now,
+                    });
+
                     if(_userConnectionService.GetConnections().TryGetValue(member.User.Email, out var connectionId)){
                         await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
                     }
@@ -185,6 +195,8 @@ namespace ProjectAPI.Controllers
                     return Conflict(new { success = false, message = "User is already joined."});
                 }else if(joinedMember != null){
                     joinedMember.Status = "Active";
+                    joinedMember.Role = member.Role ?? "Member";
+                    joinedMember.Joined_At = DateTime.Now;
                     if(joinedMember != null && joinedMember.User !=null){
                         var newNotification = new Notification
                         {
@@ -201,6 +213,16 @@ namespace ProjectAPI.Controllers
                                 
                         _context.Notifications.Add(newNotification);
 
+                        _context.Task_Histories.Add(new Task_History
+                        {
+                            Task_Id = null,
+                            Project_Id = project.Id,
+                            Prev_Value = null,
+                            New_Value = null,
+                            Action_Description = $" {user.Firstname} {user.Lastname} added {joinedMember.User.Firstname} {joinedMember.User.Lastname}.",
+                            Date_Time = DateTime.Now,
+                        });
+
                         if(_userConnectionService.GetConnections().TryGetValue(joinedMember.User.Email, out var connectionId)){
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
                         }
@@ -209,7 +231,7 @@ namespace ProjectAPI.Controllers
                     var newMember = new Member{
                         Project_Id = member.Project_Id,
                         User_Id = member.User_Id,
-                        Role = "Member",
+                        Role = member.Role ?? "Member",
                         Joined_At = DateTime.Now,
                         Status = "Active"
                     };
@@ -234,6 +256,16 @@ namespace ProjectAPI.Controllers
                         };
                                 
                         _context.Notifications.Add(newNotification);
+
+                        _context.Task_Histories.Add(new Task_History
+                        {
+                            Task_Id = null,
+                            Project_Id = project.Id,
+                            Prev_Value = null,
+                            New_Value = null,
+                            Action_Description = $"{createdMember.User.Firstname} {createdMember.User.Lastname}'s role was added to the project by {user.Firstname} {user.Lastname}.",
+                            Date_Time = DateTime.Now,
+                        });
 
                         if(_userConnectionService.GetConnections().TryGetValue(createdMember.User.Email, out var connectionId)){
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
@@ -281,10 +313,20 @@ namespace ProjectAPI.Controllers
                 m.Status == "Active"
             );
 
-            if(!isAdmin) return Unauthorized(new { success = false, message = "Member creation failed: Admin-only action"});
+            if(!isAdmin) return Unauthorized(new { success = false, message = "Update failed: Admin-only action"});
             
             member.Status = updatedMember.Status;
             member.Role = updatedMember.Role; 
+
+            _context.Task_Histories.Add(new Task_History
+            {
+                Task_Id = null,
+                Project_Id = project.Id,
+                Prev_Value = null,
+                New_Value = null,
+                Action_Description = $"{member.User.Firstname} {member.User.Lastname}'s role was updated to \"{updatedMember.Role}\" by {user.Firstname} {user.Lastname}.",
+                Date_Time = DateTime.Now,
+            });
 
             var newNotification = new Notification
             {

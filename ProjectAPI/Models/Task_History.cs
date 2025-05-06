@@ -5,7 +5,7 @@ namespace ProjectAPI.Models;
 public class Task_History
 {   
     public int Id { get; set; }
-    public int Task_Id { get; set; }
+    public int? Task_Id { get; set; }
     public int Project_Id { get; set; }
     public string? Prev_Value { get; set; }
     public string? New_Value { get; set; }

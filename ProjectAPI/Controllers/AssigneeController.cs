@@ -47,9 +47,12 @@ namespace ProjectAPI.Controllers
 
                 if(task == null) return NotFound(new { success = false, message = "Task does not exist"});
                 
-                var isAdmin = await _context.Members.AnyAsync(m => m.User_Id == userId && m.Project_Id == task.Project_Id && m.Status == "Active");
+                var isAuthorize = await _context.Members.AnyAsync(m => 
+                m.User_Id == userId && m.Project_Id == task.Project_Id &&
+                (m.Role == "Admin" || m.Role == "Editor")
+                && m.Status == "Active");
 
-                if(!isAdmin) return Unauthorized(new { success = false, message = "Unauthorized: Access is restricted to administrators only. " });
+                if(!isAuthorize) return Unauthorized(new { success = false, message = "Unauthorized: Access is restricted to administrators and editors only. " });
                 
                 var assigneesToRemove = new List<Assignee>();
 
@@ -69,7 +72,7 @@ namespace ProjectAPI.Controllers
                         Task_Id = assigneeToAdd.Task_Id,
                         Project_Id = task.Project_Id,
                         New_Value = $"{newAssignee.User.Firstname} {newAssignee.User.Lastname}",
-                        Action_Description = $"{user.Firstname} added an assignee",
+                        Action_Description = $"{user.Firstname} {user.Lastname} added an assignee",
                         Date_Time = DateTime.Now
                     });
 
@@ -111,7 +114,7 @@ namespace ProjectAPI.Controllers
                         Project_Id = task.Project_Id,
                         Prev_Value = $"{assignee.Member.User.Firstname} {assignee.Member.User.Lastname}",
                         New_Value = "Removed",
-                        Action_Description = $"{user.Firstname} removed an assignee",
+                        Action_Description = $"{user.Firstname} {user.Lastname} removed an assignee",
                         Date_Time = DateTime.Now,
                     });
 

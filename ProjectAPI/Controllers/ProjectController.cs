@@ -74,6 +74,22 @@ namespace ProjectAPI.Controllers
         }
 
         [Authorize]
+        [HttpGet("/user")]
+        public async Task<IActionResult> GetUserProjects()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                return Unauthorized(new { success = false, message = "Invalid user token" });
+
+            var projects = await _context.Projects
+                .Where(p => p.User_id == userId)
+                .ToListAsync();
+
+            return Ok(new { success = true, projects });
+        }
+
+        [Authorize]
         [HttpGet()]
         public async Task<IActionResult> GetProjects()
         {

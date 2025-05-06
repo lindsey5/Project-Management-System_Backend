@@ -64,11 +64,11 @@ namespace ProjectAPI.Controllers
 
                 var isAssignee = await _context.Assignees.AnyAsync(a => a.Task_Id == id && a.Member_Id == member.Id);
                 
-                if(member.Role != "Admin" && !isAssignee) return Unauthorized( new { success = false, message = "Access is only for admins and assignees" });
+                if((member.Role != "Admin" || member.Role != "Editor") && !isAssignee) return Unauthorized( new { success = false, message = "Access is only for admins and assignees" });
                 
                 var changes = new List<Task_History>();
 
-                void AddHistory(string description, string prev, string next)
+                void AddHistory(string description, string? prev, string next)
                 {
                     changes.Add(new Task_History
                     {
@@ -81,29 +81,26 @@ namespace ProjectAPI.Controllers
                     });
                 }
 
-                if(UpdatedTask.Status != "Deleted"){
-                    if (task.Status != UpdatedTask.Status)
-                        AddHistory("changed the status", task.Status, UpdatedTask.Status);
+                if (task.Status != UpdatedTask.Status)
+                    AddHistory("changed the status", task.Status, UpdatedTask.Status);
 
-                    if (task.Task_Name != UpdatedTask.Task_Name)
-                        AddHistory("changed the task name", task.Task_Name, UpdatedTask.Task_Name);
+                if (task.Task_Name != UpdatedTask.Task_Name)
+                    AddHistory("changed the task name", task.Task_Name, UpdatedTask.Task_Name);
 
-                    if (task.Description != UpdatedTask.Description)
-                        AddHistory("changed the description", task.Description, UpdatedTask.Description);
+                if (task.Description != UpdatedTask.Description)
+                    AddHistory("changed the description", task.Description, UpdatedTask.Description);
 
-                    if (task.Priority != UpdatedTask.Priority)
-                        AddHistory("changed the priority", task.Priority, UpdatedTask.Priority);
+                if (task.Priority != UpdatedTask.Priority)
+                    AddHistory("changed the priority", task.Priority, UpdatedTask.Priority);
 
-                    if (task.Start_date != UpdatedTask.Start_date)
-                        AddHistory("changed the start date", task.Start_date.ToString(), UpdatedTask.Start_date.ToString());
+                if (task.Start_date != UpdatedTask.Start_date)
+                    AddHistory("changed the start date", task.Start_date.ToString(), UpdatedTask.Start_date.ToString());
 
-                    if (task.Due_date != UpdatedTask.Due_date)
-                        AddHistory("changed the due date", task.Due_date.ToString(), UpdatedTask.Due_date.ToString());
-                }else{
-                    AddHistory("deleted a task", task.Status, UpdatedTask.Status);
-                }
+                if (task.Due_date != UpdatedTask.Due_date)
+                    AddHistory("changed the due date", task.Due_date.ToString(), UpdatedTask.Due_date.ToString());
 
                 _context.Task_Histories.AddRange(changes);
+                
                 task.Status = UpdatedTask.Status;
                 task.Task_Name = UpdatedTask.Task_Name;
                 task.Description = UpdatedTask.Description;
@@ -111,18 +108,17 @@ namespace ProjectAPI.Controllers
                 task.Start_date = UpdatedTask.Start_date;
                 task.Due_date = UpdatedTask.Due_date;
                 task.Updated_At = DateTime.Now;
+                
 
                 if(changes.Count > 0){
                     foreach(var assignee in task.Assignees){
                         if(assignee.Member == null || task?.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
                         
                         var builder = new StringBuilder();
-                        builder.AppendLine($"Task \"{task.Task_Name}\" in project \"{task?.Project.Title}\" has been {(UpdatedTask.Status != "Deleted" ? "updated:" : "deleted")}");
+                        builder.AppendLine($"Task \"{task.Task_Name}\" in project \"{task?.Project.Title}\" has been updated");
 
-                        if(UpdatedTask.Status != "Deleted"){
-                            foreach(var change in changes){
+                        foreach(var change in changes){
                             builder.AppendLine($"{change.Action_Description} from \"{change.Prev_Value}\" to \"{change.New_Value}\"");
-                        }
                         }
 
                         string message = builder.ToString();
@@ -144,6 +140,82 @@ namespace ProjectAPI.Controllers
                         if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
                         }
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, updatedTask = task});
+
+            }catch(Exception ex){
+                return StatusCode(500, new { Error = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteTask(int id)
+        {
+            try{
+                var task = await _context.Tasks
+                .Include(t => t.Project)
+                .Include(t => t.Assignees)
+                    .ThenInclude(a => a.Member)
+                        .ThenInclude(m => m.User)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+                if (task == null) return NotFound(new { success = false, message = "Task not found"});
+                
+                if(task.Status == "Deleted") return BadRequest(new { success = false, message = "Can't update, task is already deleted"});
+
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+                if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                    return Unauthorized(new { success = false, message = "Invalid user token" });
+
+                var user = await _context.Users.FindAsync(userId);
+
+                if(user == null) return NotFound(new { success = false, message = "User not found."}); 
+
+                var member = await _context.Members.FirstOrDefaultAsync(m => m.User_Id == userId && m.Project_Id == task.Project_Id); 
+
+                if(member == null) return Unauthorized(new { success = false, message = "User is not part of the project." });
+
+                var isAssignee = await _context.Assignees.AnyAsync(a => a.Task_Id == id && a.Member_Id == member.Id);
+                
+                if((member.Role != "Admin" || member.Role != "Editor") && !isAssignee) return Unauthorized( new { success = false, message = "Access is only for admins and assignees" });
+                
+                _context.Task_Histories.Add(new Task_History
+                {
+                    Action_Description = $"Task \"{task.Task_Name}\" has been deleted by {user.Firstname} {user.Lastname}",
+                    Prev_Value = null,
+                    New_Value = "Deleted",
+                    Date_Time = DateTime.Now,
+                    Task_Id = task.Id,
+                    Project_Id = task.Project_Id,
+                });
+
+                 _context.Tasks.Remove(task);
+
+                foreach(var assignee in task.Assignees){
+                    if(assignee.Member == null || task?.Project == null || assignee.Member.User == null || assignee.Member.User.Id == userId) continue;
+                        var newNotification = new Notification
+                        {
+                            Message = $"Task \"{task.Task_Name}\" in project \"{task?.Project.Title}\" has been deleted",
+                            User_id = assignee.Member.User.Id,
+                            Task_id = task?.Id,
+                            Project_id = task?.Project_Id,
+                            Type = "TaskDeleted",
+                            Created_by = userId,
+                            IsRead = false,
+                            Date_time = DateTime.Now,
+                            User = user
+                        };
+
+                        _context.Notifications.Add(newNotification);
+
+                        if(_userConnectionService.GetConnections().TryGetValue(assignee.Member.User.Email, out var connectionId)){
+                            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
                     }
                 }
 
@@ -185,7 +257,7 @@ namespace ProjectAPI.Controllers
                         .ThenInclude(m => m.User)
                 .ToListAsync();
 
-            return Ok(new { success = true, tasks, message = "asdsa"});
+            return Ok(new { success = true, tasks });
         }
 
         [Authorize]
@@ -232,10 +304,10 @@ namespace ProjectAPI.Controllers
             
             var member = await _context.Members.FirstOrDefaultAsync(m => 
                 m.Project_Id == taskCreateDto.Project_Id && m
-                .User_Id == userId && m.Role == "Admin" && m.Status == "Active"
+                .User_Id == userId && ( m.Role == "Admin" || m.Role == "Editor") && m.Status == "Active" 
             );
 
-            if(member == null ) return Unauthorized("Access is restricted to administrators only.");
+            if(member == null ) return Unauthorized("Access is restricted to administrators and editors only.");
 
             try {
                 var task = new Task{
@@ -253,6 +325,16 @@ namespace ProjectAPI.Controllers
 
                 _context.Tasks.Add(task);
                 await _context.SaveChangesAsync();
+
+                _context.Task_Histories.Add(new Task_History
+                {
+                    Action_Description = $"{user.Firstname} {user.Lastname} created a task",
+                    Prev_Value = null,
+                    New_Value = null,
+                    Date_Time = DateTime.Now,
+                    Task_Id = task.Id,
+                    Project_Id = task.Project_Id,
+                });
 
                 var Assignees = await _assigneeService.CreateAssignees(_context, taskCreateDto.AssigneesMemberId, task.Id, taskCreateDto.Project_Id);
                 await _context.SaveChangesAsync();
@@ -288,7 +370,7 @@ namespace ProjectAPI.Controllers
                             Created_by = userId,
                             IsRead = false,
                             Date_time = DateTime.Now,
-                            User = user // assumes user is already tracked or from context
+                            User = user
                         };
 
                         _context.Notifications.Add(notification);
