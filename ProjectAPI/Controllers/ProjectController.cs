@@ -4,6 +4,8 @@ using System.Security.Claims;
 using ProjectAPI.Models;
 using ProjectAPI.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
+using Microsoft.AspNetCore.SignalR;
 
 namespace ProjectAPI.Controllers
 {
@@ -13,10 +15,20 @@ namespace ProjectAPI.Controllers
     {
         private readonly ApplicationDBContext _context;
         private readonly ProjectService _projectService;
-         public ProjectController(ApplicationDBContext context, ProjectService projectService)
+        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly UserConnectionService _userConnectionService;
+
+         public ProjectController(
+            ApplicationDBContext context, 
+            ProjectService projectService,
+            IHubContext<NotificationHub> hubContext,
+            UserConnectionService userConnectionService
+         )
         {
             _context = context;
             _projectService = projectService;
+            _hubContext = hubContext;
+            _userConnectionService = userConnectionService;
         }
 
         [Authorize]
@@ -126,14 +138,95 @@ namespace ProjectAPI.Controllers
 
                 if (idClaim == null || !int.TryParse(idClaim.Value, out int userId)) 
                     return Unauthorized(new { message = "ID not found in token." });
+                
+                var user = await _context.Users.FindAsync(userId);
+
+                if(user == null) return NotFound(new { success = false, message = "User not found"});
 
                 var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == updatedProject.Id);
                 
-                if(project == null) return NotFound(new { success = true, message = "Project not found."} );
+                if(project == null) return NotFound(new { success = false, message = "Project not found."} );
 
                 var isAdmin = await _context.Members.AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId && m.Role == "Admin");
 
                 if(!isAdmin) return Unauthorized(new { success = false, message = "Only admin is authorized"});
+
+                var members = await _context.Members
+                    .Include(m => m.User)
+                    .Where(m => m.Project_Id == project.Id && m.User_Id != userId)
+                    .ToListAsync();
+
+                var changes = new List<Task_History>();
+
+                void AddHistory(string description, string? prev, string next)
+                {
+                    changes.Add(new Task_History
+                    {
+                        Action_Description = $"{user.Firstname} {description} to {next}",
+                        Prev_Value = prev,
+                        New_Value = next,
+                        Date_Time = DateTime.Now,
+                        Task_Id = null,
+                        Project_Id = project.Id,
+                    });
+                }
+
+                if (project.Title != updatedProject.Title)
+                    AddHistory("changed the project title", project.Title, updatedProject.Title);
+
+                if (project.Description != updatedProject.Description)
+                    AddHistory("changed the project description", project.Description, updatedProject.Description);
+
+                if (project.Type != updatedProject.Type)
+                    AddHistory("changed the type", project.Type, updatedProject.Type);
+
+                if (project.Start_date != updatedProject.Start_date)
+                    AddHistory("changed the project start date", 
+                            project.Start_date.ToString("yyyy-MM-dd"), 
+                            updatedProject.Start_date.ToString("yyyy-MM-dd"));
+
+                if (project.End_date != updatedProject.End_date)
+                    AddHistory("changed the project end date", 
+                            project.End_date.ToString("yyyy-MM-dd"), 
+                            updatedProject.End_date.ToString("yyyy-MM-dd"));
+
+                if (project.Status != updatedProject.Status)
+                    AddHistory("changed the project status", project.Status, updatedProject.Status);
+
+                _context.Task_Histories.AddRange(changes);
+
+                if(changes.Count > 0){
+                    foreach(var member in members){
+                        if(member == null || member.User == null) continue;
+                        
+                        var builder = new StringBuilder();
+                        builder.AppendLine($"Project \"{project.Title}\" has been updated: ");
+
+                        foreach(var change in changes){
+                            builder.AppendLine($"{change.Action_Description} from \"{change.Prev_Value}\" to \"{change.New_Value}\"");
+                        }
+
+                        string message = builder.ToString();
+                        var newNotification = new Notification
+                        {
+                            Message = message,
+                            User_id = member.User.Id,
+                            Task_id = null,
+                            Project_id = project.Id,
+                            Type = "ProjectUpdated",
+                            Created_by = userId,
+                            IsRead = false,
+                            Date_time = DateTime.Now,
+                            User = user
+                        };
+
+                        _context.Notifications.Add(newNotification);
+
+                        if(_userConnectionService.GetConnections().TryGetValue(member.User.Email, out var connectionId)){
+                            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                        }
+                    }
+                }
 
                 project.Title = updatedProject.Title;
                 project.Description = updatedProject.Description;
@@ -144,7 +237,7 @@ namespace ProjectAPI.Controllers
 
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, updatedProject});
+                return Ok(new { success = true, updatedProject, changes});
 
             }catch(Exception ex){
                 return StatusCode(500, new { 

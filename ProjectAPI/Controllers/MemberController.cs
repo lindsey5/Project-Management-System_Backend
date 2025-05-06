@@ -234,17 +234,26 @@ namespace ProjectAPI.Controllers
                         Status = "Active"
                     };
                     _context.Members.Add(newMember);
+                    await _context.SaveChangesAsync();
 
-                    var createdMember = await _context.Members
-                        .Include(m => m.User)
-                        .FirstOrDefaultAsync(m => m.Id == newMember.Id);
+                    var newMemberUser = await _context.Users.FindAsync(member.User_Id);
 
-                    if(createdMember != null && createdMember.User !=null){
-                        joinedMember = createdMember;
+                    joinedMember = new Member
+                    {
+                        Id = newMember.Id,
+                        Project_Id = newMember.Project_Id,
+                        User_Id = newMember.User_Id,
+                        Role = newMember.Role,
+                        Joined_At = newMember.Joined_At,
+                        Status = newMember.Status,
+                        User = newMemberUser 
+                    };
+
+                    if(newMemberUser != null){
                         var newNotification = new Notification
                         {
                             Message = $"You have been added in project \"{project.Title}\"",
-                            User_id = createdMember.User.Id,
+                            User_id = newMemberUser.Id,
                             Task_id = null,
                             Project_id = project.Id,
                             Type = "AddedToProject",
@@ -262,18 +271,18 @@ namespace ProjectAPI.Controllers
                             Project_Id = project.Id,
                             Prev_Value = null,
                             New_Value = null,
-                            Action_Description = $"{createdMember.User.Firstname} {createdMember.User.Lastname}'s role was added to the project by {user.Firstname} {user.Lastname}.",
+                            Action_Description = $"{newMemberUser.Firstname} {newMemberUser.Lastname}'s role was added to the project by {user.Firstname} {user.Lastname}.",
                             Date_Time = DateTime.Now,
                         });
 
-                        if(_userConnectionService.GetConnections().TryGetValue(createdMember.User.Email, out var connectionId)){
+                        if(_userConnectionService.GetConnections().TryGetValue(newMemberUser.Email, out var connectionId)){
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
                         }
                     }
                 }
 
                 await _context.SaveChangesAsync();
-                 return Ok(new { success = true, message = "New member successfully created", newMember = joinedMember});
+                return Ok(new { success = true, message = "New member successfully created", newMember = joinedMember});
             }catch(Exception ex){
                 return StatusCode(500, new { 
                     success = false, 

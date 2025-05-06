@@ -128,7 +128,7 @@ namespace ProjectAPI.Controllers
                             User_id = assignee.Member.User.Id,
                             Task_id = task?.Id,
                             Project_id = task?.Project_Id,
-                            Type = UpdatedTask.Status != "Deleted" ? "TaskUpdated" : "TaskDeleted",
+                            Type ="TaskUpdated",
                             Created_by = userId,
                             IsRead = false,
                             Date_time = DateTime.Now,
