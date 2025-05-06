@@ -71,13 +71,11 @@ namespace ProjectAPI.Controllers
                 .Include(m => m.User)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
-            // If the project is not found, return a NotFound response
             if (member == null)
             {
                 return NotFound(new { message = "Project not found." });
             }
 
-            // Return the found project
             return Ok(new { success = true, member });
         }
 
@@ -242,6 +240,7 @@ namespace ProjectAPI.Controllers
                         .FirstOrDefaultAsync(m => m.Id == newMember.Id);
 
                     if(createdMember != null && createdMember.User !=null){
+                        joinedMember = createdMember;
                         var newNotification = new Notification
                         {
                             Message = $"You have been added in project \"{project.Title}\"",
@@ -274,7 +273,7 @@ namespace ProjectAPI.Controllers
                 }
 
                 await _context.SaveChangesAsync();
-                 return Ok(new { success = true, message = "New member successfully created"});
+                 return Ok(new { success = true, message = "New member successfully created", newMember = joinedMember});
             }catch(Exception ex){
                 return StatusCode(500, new { 
                     success = false, 
