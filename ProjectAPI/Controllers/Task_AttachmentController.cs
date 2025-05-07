@@ -198,7 +198,7 @@ namespace ProjectAPI.Controllers
                 _context.Task_Attachments.Remove(attachment);
 
                 _context.Task_Histories.Add(new Task_History{
-                    Action_Description = $"{user.Firstname} added an attachment",
+                    Action_Description = $"{user.Firstname} {user.Lastname} deleted an attachment",
                     Prev_Value = attachment.Name,
                     New_Value  = "Deleted",
                     Task_Id = task.Id,
@@ -211,7 +211,7 @@ namespace ProjectAPI.Controllers
 
                     var newNotification = new Notification
                     {
-                        Message = $"{user.Firstname} {user.Lastname} added an attachment in task \"{task.Task_Name}\" in project \"{task.Project.Title}\"",
+                        Message = $"{user.Firstname} {user.Lastname} deleted an attachment in task \"{task.Task_Name}\" in project \"{task.Project.Title}\"",
                         User_id = assignee.Member.User.Id,
                         Task_id = task.Id,
                         Project_id = task.Project_Id,
