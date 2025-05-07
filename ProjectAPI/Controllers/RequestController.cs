@@ -93,6 +93,7 @@ namespace ProjectAPI.Controllers
                     .Include(r => r.User)
                     .Where(r =>  
                         r.Project_Id == project_id &&
+                        r.User != null && 
                         (string.IsNullOrEmpty(status) || r.Status == status) && ( 
                         string.IsNullOrEmpty(loweredSearchTerm) || 
                         r.User.Email.ToLower().Contains(loweredSearchTerm) ||
@@ -106,7 +107,7 @@ namespace ProjectAPI.Controllers
                     .Where(r => 
                         r.Project_Id == project_id && 
                         (string.IsNullOrEmpty(status) || r.Status == status)
-                        && (
+                        && r.User != null && (
                             string.IsNullOrEmpty(loweredSearchTerm) || 
                             r.User.Email.ToLower().Contains(loweredSearchTerm) ||
                             r.User.Firstname.ToLower().Contains(loweredSearchTerm) ||
@@ -130,7 +131,7 @@ namespace ProjectAPI.Controllers
             }catch(Exception ex){
                 return StatusCode(500, new { 
                     success = false, 
-                    message = "An internal error occurred",
+                    message = $"An internal error occurred: {ex.Message}",
                 });
             }
         }

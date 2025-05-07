@@ -113,6 +113,11 @@ namespace ProjectAPI.Controllers
                     .Where(a => a.Member_Id == member.Id)
                     .ToListAsync();
                 _context.RemoveRange(assignees);
+                
+                var recentProject = await _context.Recent_Opened_Projects
+                    .FirstOrDefaultAsync(rp => rp.User_Id == userId && rp.Project_Id == project.Id);
+
+                if(recentProject != null) _context.Recent_Opened_Projects.Remove(recentProject);
 
                 if(member.User !=null){
                     var newNotification = new Notification
@@ -158,8 +163,8 @@ namespace ProjectAPI.Controllers
         }
 
         [Authorize]
-        [HttpDelete("left/{id}")]
-        public async Task<IActionResult> LeaveProject(int id)
+        [HttpDelete("left/{project_id}")]
+        public async Task<IActionResult> LeaveProject(int project_id)
         {
             try{
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -173,7 +178,7 @@ namespace ProjectAPI.Controllers
                 var member = await _context.Members
                     .Include(m => m.User)
                     .Include(m => m.Project)
-                    .FirstOrDefaultAsync(m => m.User_Id == userId && m.Project_Id == id);
+                    .FirstOrDefaultAsync(m => m.User_Id == userId && m.Project_Id == project_id);
 
                 if (member == null) return NotFound(new { message = "User does not belong to this project." });
 
@@ -185,8 +190,13 @@ namespace ProjectAPI.Controllers
                     .ToListAsync();
                 _context.RemoveRange(assignees);
 
+                var recentProject = await _context.Recent_Opened_Projects
+                    .FirstOrDefaultAsync(rp => rp.User_Id == userId && rp.Project_Id == project_id);
+
+                if(recentProject != null) _context.Recent_Opened_Projects.Remove(recentProject);
+
                 if(member.User !=null && member.Project != null){
-                    var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project.Id);
+                    var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == project_id);
                     
                     if(project != null){
                         _context.Task_Histories.Add(new Task_History
@@ -363,6 +373,16 @@ namespace ProjectAPI.Controllers
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
                         }
                     }
+                }
+
+                if(joinedMember != null){
+                    var recentProject = new Recent_opened_project
+                    {
+                        User_Id = joinedMember.User_Id,
+                        Project_Id = project.Id,
+                        Last_accessed = DateTime.Now
+                    };
+                    _context.Recent_Opened_Projects.Add(recentProject);
                 }
 
                 await _context.SaveChangesAsync();

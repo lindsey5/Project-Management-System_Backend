@@ -110,21 +110,14 @@ namespace ProjectAPI.Controllers
             if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                 return Unauthorized(new { success = false, message = "Invalid user token" });
 
-            var projectIds = await _context.Members
-                .Where(m => m.User_Id == userId && m.Status == "Active")
-                .Select(m => m.Project_Id)
-                .Distinct()
+            var projects = await _context.Recent_Opened_Projects
+                .Where(p => p.User_Id == userId)
+                .Include(p => p.Project)
+                    .ThenInclude(p => p.User)
+                .OrderByDescending(p => p.Last_accessed)
                 .ToListAsync();
 
-            var memberProjects = await _context.Projects
-                .Where(p => projectIds.Contains(p.Id))
-                .Include(p => p.User)
-                .ToListAsync();
-
-            return Ok(new { 
-                success = true, 
-                projects = memberProjects
-            });
+            return Ok(new { success = true, projects });
         }
 
         [Authorize]
@@ -152,7 +145,7 @@ namespace ProjectAPI.Controllers
 
                 var members = await _context.Members
                         .Include(m => m.User)
-                        .Where(m => m.Project_Id == project.Id)
+                        .Where(m => m.Project_Id == project.Id && m.User_Id != userId)
                         .ToListAsync();
 
                 foreach(var member in members){
