@@ -129,10 +129,9 @@ namespace ProjectAPI.Controllers
 
         [Authorize]
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProject(int id, [FromBody] Project updatedProject)
+        public async Task<IActionResult> DeleteProject(int id)
         {
             try{
-                if (updatedProject == null) return BadRequest(new { message = "Project data is missing." });
                 // Get the user ID from the claims
                 var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
@@ -150,6 +149,34 @@ namespace ProjectAPI.Controllers
                 if(project.User_id != userId) return Unauthorized(new { success = false, message = "Unauthorized: You do not have permission to access this project."});
 
                 _context.Projects.Remove(project);
+
+                var members = await _context.Members
+                        .Include(m => m.User)
+                        .Where(m => m.Project_Id == project.Id)
+                        .ToListAsync();
+
+                foreach(var member in members){
+                    if(member.User == null) continue;
+
+                    var newNotification = new Notification
+                    {
+                        Message = $"Project \"{project.Title}\" has been deleted by {user.Firstname} {user.Lastname} ",
+                        User_id = member.User.Id,
+                        Task_id = null,
+                        Project_id = project.Id,
+                        Type = "ProjectDeleted",
+                        Created_by = userId,
+                        IsRead = false,
+                        Date_time = DateTime.Now,
+                        User = user
+                    };
+                                        
+                    _context.Notifications.Add(newNotification);
+
+                    if(_userConnectionService.GetConnections().TryGetValue(member.User.Email, out var connectionId)){
+                        await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                    }
+                }
 
                 await _context.SaveChangesAsync();
 
