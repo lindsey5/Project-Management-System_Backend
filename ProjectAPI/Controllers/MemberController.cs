@@ -365,7 +365,7 @@ namespace ProjectAPI.Controllers
                             Project_Id = project.Id,
                             Prev_Value = null,
                             New_Value = null,
-                            Action_Description = $"{newMemberUser.Firstname} {newMemberUser.Lastname}'s role was added to the project by {user.Firstname} {user.Lastname}.",
+                            Action_Description = $"{newMemberUser.Firstname} {newMemberUser.Lastname} was added to the project by {user.Firstname} {user.Lastname}.",
                             Date_Time = DateTime.Now,
                         });
 
