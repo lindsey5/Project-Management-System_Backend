@@ -158,6 +158,90 @@ namespace ProjectAPI.Controllers
         }
 
         [Authorize]
+        [HttpDelete("left/{id}")]
+        public async Task<IActionResult> LeaveProject(int id)
+        {
+            try{
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            
+                if(idClaim == null || !int.TryParse(idClaim.Value, out int userId)) return Unauthorized(new { message = "ID not found in token." });
+                    
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+                if (user == null) return Unauthorized(new { success = false, message = "Unauthorized: User account does not exist." });
+
+                var member = await _context.Members
+                    .Include(m => m.User)
+                    .Include(m => m.Project)
+                    .FirstOrDefaultAsync(m => m.User_Id == userId && m.Project_Id == id);
+
+                if (member == null) return NotFound(new { message = "User does not belong to this project." });
+
+                member.Status = "Inactive";
+                member.Role = "Member";
+
+                var assignees = await _context.Assignees
+                    .Where(a => a.Member_Id == member.Id)
+                    .ToListAsync();
+                _context.RemoveRange(assignees);
+
+                if(member.User !=null && member.Project != null){
+                    var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == member.Project.Id);
+                    
+                    if(project != null){
+                        _context.Task_Histories.Add(new Task_History
+                            {
+                                Task_Id = null,
+                                Project_Id = project.Id,
+                                Prev_Value = null,
+                                New_Value = null,
+                                Action_Description = $"{user.Firstname} {user.Lastname} has left in the project.",
+                                Date_Time = DateTime.Now,
+                        });
+                        
+                        var admins = await _context.Members
+                        .Include(m => m.User)
+                        .Where(m => m.Role == "Admin" && m.Project_Id == project.Id)
+                        .ToListAsync();
+
+                        foreach(var admin in admins){
+                            if(admin.User == null) continue;
+
+                            var newNotification = new Notification
+                            {
+                                Message = $"{member.User.Firstname} {member.User.Lastname} has left in the project \"{project.Title}\"",
+                                User_id = admin.User.Id,
+                                Task_id = null,
+                                Project_id = project.Id,
+                                Type = "LeftFromProject",
+                                Created_by = userId,
+                                IsRead = false,
+                                Date_time = DateTime.Now,
+                                User = user
+                            };
+                                        
+                            _context.Notifications.Add(newNotification);
+
+                            if(_userConnectionService.GetConnections().TryGetValue(admin.User.Email, out var connectionId)){
+                                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                            }
+                        }
+                    }
+                }
+        
+                await _context.SaveChangesAsync();
+    
+                return Ok(new { success = true, message = "Member successfully removed" });
+            }catch(Exception ex){
+            return StatusCode(500, new { 
+                    success = false, 
+                    message = "An error occurred while processing your request",
+                    error = ex.Message 
+                });
+            }
+        }
+
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> CreateMember([FromBody] Member member)
         {

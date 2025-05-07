@@ -128,6 +128,43 @@ namespace ProjectAPI.Controllers
         }
 
         [Authorize]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProject(int id, [FromBody] Project updatedProject)
+        {
+            try{
+                if (updatedProject == null) return BadRequest(new { message = "Project data is missing." });
+                // Get the user ID from the claims
+                var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+                if (idClaim == null || !int.TryParse(idClaim.Value, out int userId)) 
+                    return Unauthorized(new { message = "ID not found in token." });
+                
+                var user = await _context.Users.FindAsync(userId);
+
+                if(user == null) return NotFound(new { success = false, message = "User not found"});
+
+                var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id);
+                
+                if(project == null) return NotFound(new { success = false, message = "Project not found."} );
+
+                if(project.User_id != userId) return Unauthorized(new { success = false, message = "Unauthorized: You do not have permission to access this project."});
+
+                _context.Projects.Remove(project);
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, message = "Project successfully deleted."});
+
+            }catch(Exception ex){
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "An error occurred while processing your request",
+                    error = ex.Message 
+                });
+            }
+        }
+
+        [Authorize]
         [HttpPut()]
         public async Task<IActionResult> UpdateProject([FromBody] Project updatedProject)
         {
