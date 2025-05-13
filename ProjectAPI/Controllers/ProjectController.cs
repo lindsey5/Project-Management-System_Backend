@@ -93,6 +93,10 @@ namespace ProjectAPI.Controllers
 
             if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
                 return Unauthorized(new { success = false, message = "Invalid user token" });
+           
+            var user = await _context.Users.FindAsync(userId);
+
+            if(user == null) return NotFound(new { success = false, message = "User not found"});
 
             var projects = await _context.Projects
                 .Where(p => p.User_id == userId)

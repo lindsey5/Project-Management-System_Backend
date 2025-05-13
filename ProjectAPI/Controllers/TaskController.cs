@@ -355,7 +355,6 @@ namespace ProjectAPI.Controllers
                         Date_Time = DateTime.Now
                     });
 
-                    // Notify only if the assignee is not the one making the assignment
                     if (newAssignee.User.Id != userId)
                     {
                         var notification = new Notification

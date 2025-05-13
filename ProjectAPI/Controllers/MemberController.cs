@@ -58,6 +58,7 @@ namespace ProjectAPI.Controllers
             var members = await _context.Members
                 .Where(m => m.Project_Id == project.Id && m.Status == "Active")
                 .Include(m => m.User)
+                .Include(m => m.User_Added_by)
                 .ToListAsync();
 
             return Ok(new { success = true, members });
@@ -288,6 +289,7 @@ namespace ProjectAPI.Controllers
                 }else if(joinedMember != null){
                     joinedMember.Status = "Active";
                     joinedMember.Role = member.Role ?? "Member";
+                    joinedMember.Added_by = userId;
                     joinedMember.Joined_At = DateTime.Now;
                     if(joinedMember != null && joinedMember.User !=null){
                         var newNotification = new Notification
@@ -325,6 +327,7 @@ namespace ProjectAPI.Controllers
                         User_Id = member.User_Id,
                         Role = member.Role ?? "Member",
                         Joined_At = DateTime.Now,
+                        Added_by = userId,
                         Status = "Active"
                     };
                     _context.Members.Add(newMember);
@@ -339,6 +342,7 @@ namespace ProjectAPI.Controllers
                         User_Id = newMember.User_Id,
                         Role = newMember.Role,
                         Joined_At = newMember.Joined_At,
+                        Added_by = userId,
                         Status = newMember.Status,
                         User = newMemberUser 
                     };
@@ -365,7 +369,7 @@ namespace ProjectAPI.Controllers
                             Project_Id = project.Id,
                             Prev_Value = null,
                             New_Value = null,
-                            Action_Description = $"{newMemberUser.Firstname} {newMemberUser.Lastname} was added to the project by {user.Firstname} {user.Lastname}.",
+                            Action_Description = $"{user.Firstname} {user.Lastname} has accepted the join request of {newMemberUser.Firstname} {newMemberUser.Lastname}.",
                             Date_Time = DateTime.Now,
                         });
 
@@ -427,38 +431,38 @@ namespace ProjectAPI.Controllers
 
             if(!isAdmin) return Unauthorized(new { success = false, message = "Update failed: Admin-only action"});
             
+            if(updatedMember.Role != member.Role){
+                _context.Task_Histories.Add(new Task_History
+                {
+                    Task_Id = null,
+                    Project_Id = project.Id,
+                    Prev_Value = null,
+                    New_Value = null,
+                    Action_Description = $"{member.User.Firstname} {member.User.Lastname}'s role was updated to \"{updatedMember.Role}\" by {user.Firstname} {user.Lastname}.",
+                    Date_Time = DateTime.Now,
+                });
+
+                var newNotification = new Notification
+                {
+                    Message = $"Your role in the project \"{project.Title}\" has been updated to {updatedMember.Role} by {member.User.Firstname} {member.User.Lastname}.",
+                    User_id = member.User.Id,
+                    Task_id = null,
+                    Project_id = project.Id,
+                    Type = "RoleUpdated",
+                    Created_by = userId,
+                    IsRead = false,
+                    Date_time = DateTime.Now,
+                    User = user
+                };
+                            
+                _context.Notifications.Add(newNotification);
+
+                if(_userConnectionService.GetConnections().TryGetValue(member.User.Email, out var connectionId)){
+                    await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                }
+            }
             member.Status = updatedMember.Status;
             member.Role = updatedMember.Role; 
-
-            _context.Task_Histories.Add(new Task_History
-            {
-                Task_Id = null,
-                Project_Id = project.Id,
-                Prev_Value = null,
-                New_Value = null,
-                Action_Description = $"{member.User.Firstname} {member.User.Lastname}'s role was updated to \"{updatedMember.Role}\" by {user.Firstname} {user.Lastname}.",
-                Date_Time = DateTime.Now,
-            });
-
-            var newNotification = new Notification
-            {
-                Message = $"Your role in the project \"{project.Title}\" has been updated to {updatedMember.Role} by {member.User.Firstname} {member.User.Lastname}.",
-                User_id = member.User.Id,
-                Task_id = null,
-                Project_id = project.Id,
-                Type = "RoleUpdated",
-                Created_by = userId,
-                IsRead = false,
-                Date_time = DateTime.Now,
-                User = user
-            };
-                        
-            _context.Notifications.Add(newNotification);
-
-            if(_userConnectionService.GetConnections().TryGetValue(member.User.Email, out var connectionId)){
-                await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
-            }
-
             await _context.SaveChangesAsync();
 
             return Ok(new { success = true, member, updatedMember}); 
