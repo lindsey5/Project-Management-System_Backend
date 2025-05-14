@@ -34,6 +34,8 @@ namespace ProjectAPI.Controllers
 
                 var notifications = await _context.Notifications
                 .Include(n => n.User)
+                .Include(n => n.Invitation)
+                    .ThenInclude(i => i.Project)
                 .Where(n => n.User_id == userId)
                 .OrderByDescending(n => n.Date_time)
                 .Skip((page - 1) * limit)
@@ -48,7 +50,7 @@ namespace ProjectAPI.Controllers
                     page, 
                     totalPages = (int)Math.Ceiling((double)totalNotifications / limit),
                     totalNotifications,
-                    unreadNotifications
+                    unreadNotifications,
                 });
 
             }catch(Exception ex){

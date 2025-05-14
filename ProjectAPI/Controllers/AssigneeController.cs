@@ -140,7 +140,6 @@ namespace ProjectAPI.Controllers
                             await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
                         }
                     }
-                        
                 
                 }
                 _context.Assignees.AddRange(assigneesUpdate.AssigneesToAdd);

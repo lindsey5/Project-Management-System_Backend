@@ -284,42 +284,39 @@ namespace ProjectAPI.Controllers
                 .Include(m => m.User)
                 .FirstOrDefaultAsync(m => m.User_Id == member.User_Id && m.Project_Id == member.Project_Id);
                 
+                var newTaskHistory = new Task_History
+                {
+                    Task_Id = null,
+                    Project_Id = project.Id,
+                    Prev_Value = null,
+                    New_Value = null,
+                    Date_Time = DateTime.Now,
+                };
+
+                var newNotification = new Notification
+                {
+                    Message = $"You're request has been accepted in project \"{project.Title}\"",
+                    Task_id = null,
+                    Project_id = project.Id,
+                    Type = "RequestAccepted",
+                    Created_by = userId,
+                    IsRead = false,
+                    Date_time = DateTime.Now,
+                    User = user
+                };
+
                 if(joinedMember != null && joinedMember.Status == "Active") {
                     return Conflict(new { success = false, message = "User is already joined."});
+
                 }else if(joinedMember != null){
                     joinedMember.Status = "Active";
                     joinedMember.Role = member.Role ?? "Member";
                     joinedMember.Added_by = userId;
                     joinedMember.Joined_At = DateTime.Now;
+
                     if(joinedMember != null && joinedMember.User !=null){
-                        var newNotification = new Notification
-                        {
-                            Message = $"You have been added in project \"{project.Title}\"",
-                            User_id = joinedMember.User.Id,
-                            Task_id = null,
-                            Project_id = project.Id,
-                            Type = "AddedToProject",
-                            Created_by = userId,
-                            IsRead = false,
-                            Date_time = DateTime.Now,
-                            User = user
-                        };
-                                
-                        _context.Notifications.Add(newNotification);
-
-                        _context.Task_Histories.Add(new Task_History
-                        {
-                            Task_Id = null,
-                            Project_Id = project.Id,
-                            Prev_Value = null,
-                            New_Value = null,
-                            Action_Description = $" {user.Firstname} {user.Lastname} added {joinedMember.User.Firstname} {joinedMember.User.Lastname}.",
-                            Date_Time = DateTime.Now,
-                        });
-
-                        if(_userConnectionService.GetConnections().TryGetValue(joinedMember.User.Email, out var connectionId)){
-                            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
-                        }
+                        newNotification.User_id = joinedMember.User.Id;
+                        newTaskHistory.Action_Description = $" {user.Firstname} {user.Lastname} has accepted the join request of {joinedMember.User.Firstname} {joinedMember.User.Lastname}.";
                     }
                 }else{
                     var newMember = new Member{
@@ -348,38 +345,12 @@ namespace ProjectAPI.Controllers
                     };
 
                     if(newMemberUser != null){
-                        var newNotification = new Notification
-                        {
-                            Message = $"You have been added in project \"{project.Title}\"",
-                            User_id = newMemberUser.Id,
-                            Task_id = null,
-                            Project_id = project.Id,
-                            Type = "AddedToProject",
-                            Created_by = userId,
-                            IsRead = false,
-                            Date_time = DateTime.Now,
-                            User = user
-                        };
-                                
-                        _context.Notifications.Add(newNotification);
-
-                        _context.Task_Histories.Add(new Task_History
-                        {
-                            Task_Id = null,
-                            Project_Id = project.Id,
-                            Prev_Value = null,
-                            New_Value = null,
-                            Action_Description = $"{user.Firstname} {user.Lastname} has accepted the join request of {newMemberUser.Firstname} {newMemberUser.Lastname}.",
-                            Date_Time = DateTime.Now,
-                        });
-
-                        if(_userConnectionService.GetConnections().TryGetValue(newMemberUser.Email, out var connectionId)){
-                            await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
-                        }
+                        newNotification.User_id = newMemberUser.Id;
+                        newTaskHistory.Action_Description = $"{user.Firstname} {user.Lastname} has accepted the join request of {newMemberUser.Firstname} {newMemberUser.Lastname}.";
                     }
                 }
 
-                if(joinedMember != null){
+                if(joinedMember != null && joinedMember.User != null){
                     var recentProject = new Recent_opened_project
                     {
                         User_Id = joinedMember.User_Id,
@@ -387,6 +358,12 @@ namespace ProjectAPI.Controllers
                         Last_accessed = DateTime.Now
                     };
                     _context.Recent_Opened_Projects.Add(recentProject);
+                    _context.Notifications.Add(newNotification);
+                    _context.Task_Histories.Add(newTaskHistory);
+
+                    if(_userConnectionService.GetConnections().TryGetValue(joinedMember.User.Email, out var connectionId)){
+                        await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveTaskNotification", 1, newNotification);
+                    }
                 }
 
                 await _context.SaveChangesAsync();

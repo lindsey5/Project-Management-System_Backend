@@ -23,4 +23,5 @@ public class ApplicationDBContext : DbContext
     public DbSet<CommentAttachment> CommentAttachments { get; set; } = null!;
     public DbSet<Notification> Notifications { get; set; } = null!;
     public DbSet<Recent_opened_project> Recent_Opened_Projects { get; set; } = null!;
+    public DbSet<Invitation> Invitations { get; set; } = null!;
 }
