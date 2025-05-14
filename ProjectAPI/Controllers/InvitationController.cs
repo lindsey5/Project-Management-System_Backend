@@ -182,14 +182,14 @@ namespace ProjectAPI.Controllers
                             projectInvitation.Status = "Accepted";
                         }
 
-                        var recentProject = new Recent_opened_project
-                        {
-                            User_Id = userId,
-                            Project_Id = invitation.Project.Id,
-                            Last_accessed = DateTime.Now
-                        };
-                        
-                        _context.Recent_Opened_Projects.Add(recentProject);
+                         var recentProject = new Recent_opened_project
+                            {
+                                User_Id = userId,
+                                Project_Id = invitation.Project.Id,
+                                Last_accessed = DateTime.Now
+                            };
+                            
+                         _context.Recent_Opened_Projects.Add(recentProject);
                         _context.Task_Histories.Add(newTaskHistory);
                          _context.Notifications.Add(notification);
 

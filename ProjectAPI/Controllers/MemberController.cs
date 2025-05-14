@@ -116,7 +116,7 @@ namespace ProjectAPI.Controllers
                 _context.RemoveRange(assignees);
                 
                 var recentProject = await _context.Recent_Opened_Projects
-                    .FirstOrDefaultAsync(rp => rp.User_Id == userId && rp.Project_Id == project.Id);
+                    .FirstOrDefaultAsync(rp => rp.User_Id == member.User_Id && rp.Project_Id == project.Id);
 
                 if(recentProject != null) _context.Recent_Opened_Projects.Remove(recentProject);
 
