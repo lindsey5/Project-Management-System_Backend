@@ -168,6 +168,8 @@ namespace ProjectAPI.Controllers
                         message = "Project not found" 
                 });
 
+                if(project.Status == "Closed") return BadRequest(new { success = false, message = "Project is already closed."});
+
                 if (await _context.Members
                     .AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId && m.Status == "Active"))
                     return Conflict(new { 
