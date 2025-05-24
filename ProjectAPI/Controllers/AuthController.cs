@@ -90,26 +90,6 @@ namespace ProjectAPI.Controllers
             Response.Cookies.Delete("jwt");
             return Ok(new { message = "Logged out successfully" });
         }
-        
-        [HttpPost("signup")]
-        public async Task<ActionResult> SignUp([FromBody] User user)
-        {
-            if(string.IsNullOrEmpty(user.Firstname)) return BadRequest(new { message= "Firstname is required"});
-            if(string.IsNullOrEmpty(user.Lastname)) return BadRequest(new { message= "Lastname is required"});
-            if(string.IsNullOrEmpty(user.Email)) return BadRequest(new { message = "Email is required"});
-            if(string.IsNullOrEmpty(user.Password)) return BadRequest(new { message = "Password is required"});
-
-            var isEmailExist = await _context.Users.AnyAsync(u => u.Email == user.Email);
-            if (isEmailExist) return BadRequest(new { message = "Email already exists." });
-
-            user.Password = _passwordHasher.HashPassword(user, user.Password);
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            var token = _authService.GenerateJwtToken(user);
-
-            return Ok(new { success = true, user, token}); 
-        }
+    
     }
 }
