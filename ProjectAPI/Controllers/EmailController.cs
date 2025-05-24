@@ -24,8 +24,8 @@ namespace ProjectAPI.Controllers
             return random.Next(100000, 999999); 
         }
 
-        [HttpPost("{verfication-code}")]
-        public async Task<IActionResult> SendVerificationEmail([FromQuery] string email)
+        [HttpPost("signup/verification-code")]
+        public async Task<IActionResult> SendSignupVerificationEmail([FromQuery] string email)
         {
             try
             {

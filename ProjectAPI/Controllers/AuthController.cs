@@ -25,29 +25,30 @@ namespace ProjectAPI.Controllers
         public async Task<IActionResult> GoogleLogin([FromBody] User loginUser)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginUser.Email);
-            if (user == null){
+            if (user == null)
+            {
                 _context.Users.Add(loginUser);
-                 await _context.SaveChangesAsync();
-                 user = loginUser;
+                await _context.SaveChangesAsync();
+                user = loginUser;
             }
 
             var token = _authService.GenerateJwtToken(user);
 
             return Ok(new
-                {
-                    success = true,
-                    message = "Login successful.",
-                    token,
-                });
+            {
+                success = true,
+                message = "Login successful.",
+                token,
+            });
         }
 
         [HttpPost("signup")]
         public async Task<ActionResult> SignUp([FromBody] User user)
         {
-            if(string.IsNullOrEmpty(user.Firstname)) return BadRequest(new { message= "Firstname is required"});
-            if(string.IsNullOrEmpty(user.Lastname)) return BadRequest(new { message= "Lastname is required"});
-            if(string.IsNullOrEmpty(user.Email)) return BadRequest(new { message = "Email is required"});
-            if(string.IsNullOrEmpty(user.Password)) return BadRequest(new { message = "Password is required"});
+            if (string.IsNullOrEmpty(user.Firstname)) return BadRequest(new { message = "Firstname is required" });
+            if (string.IsNullOrEmpty(user.Lastname)) return BadRequest(new { message = "Lastname is required" });
+            if (string.IsNullOrEmpty(user.Email)) return BadRequest(new { message = "Email is required" });
+            if (string.IsNullOrEmpty(user.Password)) return BadRequest(new { message = "Password is required" });
 
             var isEmailExist = await _context.Users.AnyAsync(u => u.Email == user.Email);
             if (isEmailExist) return BadRequest(new { message = "Email already exists." });
@@ -59,7 +60,7 @@ namespace ProjectAPI.Controllers
 
             var token = _authService.GenerateJwtToken(user);
 
-            return Ok(new { success = true, user, token}); 
+            return Ok(new { success = true, user, token });
         }
 
         // POST: api/auth/login
@@ -86,8 +87,29 @@ namespace ProjectAPI.Controllers
         [HttpPost("logout")]
         public IActionResult Logout()
         {
-            Response.Cookies.Delete("jwt"); 
+            Response.Cookies.Delete("jwt");
             return Ok(new { message = "Logged out successfully" });
+        }
+        
+        [HttpPost("signup")]
+        public async Task<ActionResult> SignUp([FromBody] User user)
+        {
+            if(string.IsNullOrEmpty(user.Firstname)) return BadRequest(new { message= "Firstname is required"});
+            if(string.IsNullOrEmpty(user.Lastname)) return BadRequest(new { message= "Lastname is required"});
+            if(string.IsNullOrEmpty(user.Email)) return BadRequest(new { message = "Email is required"});
+            if(string.IsNullOrEmpty(user.Password)) return BadRequest(new { message = "Password is required"});
+
+            var isEmailExist = await _context.Users.AnyAsync(u => u.Email == user.Email);
+            if (isEmailExist) return BadRequest(new { message = "Email already exists." });
+
+            user.Password = _passwordHasher.HashPassword(user, user.Password);
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var token = _authService.GenerateJwtToken(user);
+
+            return Ok(new { success = true, user, token}); 
         }
     }
 }
