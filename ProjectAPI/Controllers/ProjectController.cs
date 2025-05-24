@@ -208,9 +208,9 @@ namespace ProjectAPI.Controllers
                 
                 if(project == null) return NotFound(new { success = false, message = "Project not found."} );
 
-                var isAdmin = await _context.Members.AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId && m.Role == "Admin");
+                var isAuthorize = await _context.Members.AnyAsync(m => m.Project_Id == project.Id && m.User_Id == userId && (m.Role == "Admin" || m.Role == "Editor"));
 
-                if(!isAdmin) return Unauthorized(new { success = false, message = "Only admin is authorized"});
+                if(!isAuthorize) return Unauthorized(new { success = false, message = "Only admin or editor is authorized"});
 
                 var members = await _context.Members
                     .Include(m => m.User)
@@ -264,7 +264,7 @@ namespace ProjectAPI.Controllers
                         builder.AppendLine($"Project \"{project.Title}\" has been updated: ");
 
                         foreach(var change in changes){
-                            builder.AppendLine($"{change.Action_Description} from \"{change.Prev_Value}\" to \"{change.New_Value}\"");
+                            builder.AppendLine($"{change.Action_Description}");
                         }
 
                         string message = builder.ToString();
