@@ -31,11 +31,13 @@ namespace ProjectAPI.Controllers
 
         var base64Image = user.Profile_pic != null ? Convert.ToBase64String(user.Profile_pic) : null;
         
-        return Ok(new { 
-            email = user.Email, 
-            firstname = user.Firstname, 
-            lastname = user.Lastname, 
-            profile_pic = $"data:image/jpeg;base64,{base64Image}" 
+        return Ok(new
+        {
+            email = user.Email,
+            firstname = user.Firstname,
+            lastname = user.Lastname,
+            profile_pic = $"data:image/jpeg;base64,{base64Image}",
+            changePasswordAllowed = string.IsNullOrEmpty(user.Password) ? false : true
         });
     }
 

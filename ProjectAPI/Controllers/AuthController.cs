@@ -1,6 +1,9 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ProjectAPI.DTOs;
 using ProjectAPI.Models;
 using ProjectAPI.Services;
 
@@ -89,6 +92,37 @@ namespace ProjectAPI.Controllers
         {
             Response.Cookies.Delete("jwt");
             return Ok(new { message = "Logged out successfully" });
+        }
+
+        [Authorize]
+        [HttpPost("password")]
+        public async Task<IActionResult> ChangePassword([FromBody] PasswordDto passwordDto)
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            Console.WriteLine(passwordDto.NewPassword);
+
+            if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+                return Unauthorized(new { success = false, message = "Invalid user token" });
+
+            var user = await _context.Users.FindAsync(userId);
+
+            if(user == null) return NotFound(new { success = false, message = "User not found."});
+
+            if (user.Password == null) return BadRequest(new { success = false, message = "Password change is not allowed for Google-linked accounts." });
+
+            var result = _passwordHasher.VerifyHashedPassword(user, user.Password, passwordDto.Password);
+            if (result == PasswordVerificationResult.Failed) return Unauthorized(new { success = false, message = "Incorrect password." });
+            
+            user.Password = _passwordHasher.HashPassword(user, passwordDto.NewPassword);
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                success = true,
+                message = "Password successfully changed",
+            });
         }
     
     }
