@@ -109,7 +109,7 @@ namespace ProjectAPI.Controllers
 
             if(user == null) return NotFound(new { success = false, message = "User not found."});
 
-            if (user.Password == null) return BadRequest(new { success = false, message = "Password change is not allowed for Google-linked accounts." });
+            if (string.IsNullOrEmpty(user.Password)) return BadRequest(new { success = false, message = "Changing password is not allowed for Google-linked accounts." });
 
             var result = _passwordHasher.VerifyHashedPassword(user, user.Password, passwordDto.Password);
             if (result == PasswordVerificationResult.Failed) return Unauthorized(new { success = false, message = "Incorrect password." });
