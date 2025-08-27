@@ -44,3 +44,9 @@ D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\System
 D:\Projects\Project Management System_Backend\ProjectAPI\obj\Debug\net9.0\ProjectAPI.sourcelink.json
 D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\DotNetEnv.dll
 D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\Sprache.dll
+D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\publish\web.config
+D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\publish\appsettings.Development.json
+D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\publish\appsettings.json
+D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\publish\ProjectAPI.deps.json
+D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\publish\ProjectAPI.runtimeconfig.json
+D:\Projects\Project Management System_Backend\ProjectAPI\bin\Debug\net9.0\publish\ProjectAPI.staticwebassets.endpoints.json

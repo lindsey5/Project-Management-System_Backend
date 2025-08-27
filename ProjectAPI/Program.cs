@@ -32,7 +32,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowMyOrigin", policy =>
     {
-        policy.WithOrigins("https://projex-ph.vercel.app")
+        policy.WithOrigins("https://projex-ph.onrender.com")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
