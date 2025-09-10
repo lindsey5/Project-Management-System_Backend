@@ -39,10 +39,17 @@ builder.Services.AddCors(options =>
     });
 });
 
+var connectionString = Environment.GetEnvironmentVariable("MYSQL_CONNECTION");
+Console.WriteLine(connectionString);
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("MYSQL_CONNECTION environment variable is not set.");
+}
+
 // Add MySQL connection with DbContext
 builder.Services.AddDbContext<ApplicationDBContext>(options =>
     options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        connectionString,
         new MySqlServerVersion(new Version(8, 0, 21))
     )
 );
