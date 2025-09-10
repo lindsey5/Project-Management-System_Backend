@@ -40,7 +40,7 @@ builder.Services.AddCors(options =>
 });
 
 var connectionString = Environment.GetEnvironmentVariable("MYSQL_CONNECTION");
-Console.WriteLine(connectionString);
+
 if (string.IsNullOrEmpty(connectionString))
 {
     throw new InvalidOperationException("MYSQL_CONNECTION environment variable is not set.");
